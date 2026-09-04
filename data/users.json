@@ -1,1 +1,92 @@
-[]
+[
+    {
+        "user_id": "C001",
+        "name": "Test Changed",
+        "email": "ahmed.client@gmail.com",
+        "phone": "01012345678",
+        "age": 28,
+        "gender": "Male",
+        "city": "Cairo",
+        "password": "Client123",
+        "role": "Client",
+        "active": true,
+        "company_name": "Nile Tech",
+        "project_ids": [
+            "P001",
+            "P002"
+        ]
+    },
+    {
+        "user_id": "C002",
+        "name": "Mariam Client",
+        "email": "mariam.client@gmail.com",
+        "phone": "01123456789",
+        "age": 31,
+        "gender": "Female",
+        "city": "Giza",
+        "password": "Client456",
+        "role": "Client",
+        "active": true,
+        "company_name": "Cairo Media",
+        "project_ids": [
+            "P003"
+        ]
+    },
+    {
+        "user_id": "F001",
+        "name": "Omar Freelancer",
+        "email": "omar.freelancer@gmail.com",
+        "phone": "01098765432",
+        "password": "Freelance123",
+        "role": "Freelancer",
+        "active": true,
+        "age": 25,
+        "gender": "Male",
+        "city": "Alexandria",
+        "skills": [
+            "Python",
+            "Django",
+            "SQL"
+        ],
+        "hourly_rate": 25.0,
+        "project_ids": [
+            "P001"
+        ],
+        "earnings": 500.0
+    },
+    {
+        "user_id": "F002",
+        "name": "Mohamed Freelancer",
+        "email": "mohamed.freelancer@gmail.com",
+        "phone": "01187654321",
+        "password": "Freelance456",
+        "role": "Freelancer",
+        "active": true,
+        "age": 27,
+        "gender": "Male",
+        "city": "Cairo",
+        "skills": [
+            "Python",
+            "Automation",
+            "APIs"
+        ],
+        "hourly_rate": 30.0,
+        "project_ids": [
+            "P002",
+            "P003"
+        ],
+        "earnings": 900.0
+    },
+    {
+        "user_id": "A001",
+        "name": "System Admin",
+        "email": "admin@freelancehub.com",
+        "phone": "01234567890",
+        "age": 30,
+        "gender": "Male",
+        "city": "Cairo",
+        "password": "Admin123",
+        "role": "Admin",
+        "active": true
+    }
+]

@@ -1,1 +1,30 @@
-[]
+[
+    {
+        "action": "REGISTER",
+        "user_id": "C001",
+        "timestamp": "2026-09-01 10:00:00"
+    },
+    {
+        "action": "REGISTER",
+        "user_id": "F001",
+        "timestamp": "2026-09-01 10:05:00"
+    },
+    {
+        "action": "PROJECT_CREATED",
+        "user_id": "C001",
+        "project_id": "P001",
+        "timestamp": "2026-09-02 11:00:00"
+    },
+    {
+        "action": "PROJECT_ASSIGNED",
+        "user_id": "F001",
+        "project_id": "P001",
+        "timestamp": "2026-09-02 11:15:00"
+    },
+    {
+        "action": "INVOICE_GENERATED",
+        "user_id": "C001",
+        "invoice_id": "I001",
+        "timestamp": "2026-09-03 12:00:00"
+    }
+]

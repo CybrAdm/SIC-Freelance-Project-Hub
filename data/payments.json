@@ -1,1 +1,10 @@
-[]
+[
+    {
+        "payment_id": "PAY001",
+        "invoice_id": "I002",
+        "client_id": "C002",
+        "amount": 1500.0,
+        "payment_method": "Credit Card",
+        "status": "Completed"
+    }
+]

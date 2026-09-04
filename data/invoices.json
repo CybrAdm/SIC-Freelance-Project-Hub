@@ -1,1 +1,24 @@
-[]
+[
+    {
+        "invoice_id": "I001",
+        "project_id": "P001",
+        "client_id": "C001",
+        "freelancer_id": "F001",
+        "amount": 1000.0,
+        "commission": 100.0,
+        "net_amount": 900.0,
+        "due_date": "2026-09-25",
+        "status": "Pending"
+    },
+    {
+        "invoice_id": "I002",
+        "project_id": "P003",
+        "client_id": "C002",
+        "freelancer_id": "F002",
+        "amount": 1500.0,
+        "commission": 150.0,
+        "net_amount": 1350.0,
+        "due_date": "2026-08-30",
+        "status": "Paid"
+    }
+]

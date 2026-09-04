@@ -1,1 +1,80 @@
-[]
+[
+    {
+        "milestone_id": "M001",
+        "project_id": "P001",
+        "title": "Database Design",
+        "description": "Design the database structure.",
+        "amount": 300.0,
+        "deadline": "2026-09-10",
+        "status": "Completed",
+        "history": [
+            {
+                "old_status": "Pending",
+                "new_status": "In Progress"
+            },
+            {
+                "old_status": "In Progress",
+                "new_status": "Completed"
+            }
+        ]
+    },
+    {
+        "milestone_id": "M002",
+        "project_id": "P001",
+        "title": "Backend Development",
+        "description": "Implement the backend features.",
+        "amount": 700.0,
+        "deadline": "2026-09-20",
+        "status": "In Progress",
+        "history": [
+            {
+                "old_status": "Pending",
+                "new_status": "In Progress"
+            }
+        ]
+    },
+    {
+        "milestone_id": "M003",
+        "project_id": "P002",
+        "title": "Automation Core",
+        "description": "Implement the main automation logic.",
+        "amount": 1200.0,
+        "deadline": "2026-10-05",
+        "status": "Pending",
+        "history": []
+    },
+    {
+        "milestone_id": "M004",
+        "project_id": "P003",
+        "title": "Frontend",
+        "description": "Create the website frontend.",
+        "amount": 900.0,
+        "deadline": "2026-08-15",
+        "status": "Completed",
+        "history": [
+            {
+                "old_status": "Pending",
+                "new_status": "Completed"
+            }
+        ]
+    },
+    {
+        "milestone_id": "M005",
+        "project_id": "P003",
+        "title": "Testing",
+        "description": "Test and finalize the website.",
+        "amount": 600.0,
+        "deadline": "2026-08-25",
+        "status": "Completed",
+        "history": [
+            {
+                "old_status": "Pending",
+                "new_status": "In Progress"
+            },
+            {
+                "old_status": "In Progress",
+                "new_status": "Completed"
+            }
+        ]
+    }
+]
