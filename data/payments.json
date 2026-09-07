@@ -1,1 +1,10 @@
-[]
+[
+    {
+        "payment_id": "PMT-0001",
+        "invoice_code": "INV-2026-0001",
+        "client_id": "C001",
+        "amount": 5000.0,
+        "payment_method": "Credit Card",
+        "status": "Completed"
+    }
+]
