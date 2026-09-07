@@ -1,71 +1,5 @@
 import json
 import os
-import re
-from datetime import datetime
-from functools import reduce
-
-
-
-class InvalidInvoiceCodeError(Exception):
-    """Raised when an invoice code does not match the required format."""
-    pass
-
-
-class InvoiceNotFoundError(Exception):
-    """Raised when an operation references an invoice code that does not exist."""
-    pass
-
-
-class ProjectNotReadyForInvoiceError(Exception):
-    """Raised when a project cannot be invoiced (no freelancer assigned, etc.)."""
-    pass
-
-
-class InvalidPaymentAmountError(Exception):
-    """Raised when a payment amount is zero, negative, or not a number."""
-    pass
-
-
-class PaymentExceedsBalanceError(Exception):
-    """Raised when a payment would pay more than the invoice's remaining balance."""
-    pass
-
-
-class PaymentNotFoundError(Exception):
-    """Raised when a payment ID does not exist."""
-    pass
-
-
-INVOICE_CODE_PATTERN = re.compile(r"^INV-\d{4}-\d{4,6}$")
-
-
-def is_valid_invoice_code(invoice_code):
-    """Regex validation for invoice codes. Returns True/False."""
-    return bool(INVOICE_CODE_PATTERN.match(invoice_code))
-
-
-
-def make_commission_calculator(initial_rate=0.10):
-    rate = initial_rate
-
-    def calculate(amount):
-        return round(amount * rate, 2)
-
-    def update_rate(new_rate):
-        nonlocal rate
-
-        if new_rate < 0 or new_rate > 1:
-            raise ValueError("Commission rate must be between 0 and 1.")
-
-        rate = new_rate
-
-    def current_rate():
-        return rate
-
-    calculate.update_rate = update_rate
-    calculate.current_rate = current_rate
-
-    return calculate
 
 
 class FreelanceManager:
@@ -77,8 +11,6 @@ class FreelanceManager:
         self.invoices = []
         self.payments = []
         self.audit_logs = []
-
-        self.commission_calculator = make_commission_calculator(0.10)
 
         self.create_data_files()
 
@@ -158,11 +90,11 @@ class FreelanceManager:
 
         return None
 
-    def find_invoice(self, invoice_code):
+    def find_invoice(self, invoice_id):
 
         for invoice in self.invoices:
 
-            if invoice.invoice_code == invoice_code:
+            if invoice.invoice_id == invoice_id:
                 return invoice
 
         return None
@@ -175,286 +107,6 @@ class FreelanceManager:
                 return payment
 
         return None
-
-
-    def generate_invoice_code(self):
-        """Auto-generate a new invoice code in the INV-YYYY-NNNN format
-        and confirm it passes the regex validation rule."""
-
-        year = datetime.now().year
-        sequence = len(self.invoices) + 1
-        invoice_code = f"INV-{year}-{sequence:04d}"
-
-        if not is_valid_invoice_code(invoice_code):
-            raise InvalidInvoiceCodeError(
-                f"Generated invoice code '{invoice_code}' failed validation."
-            )
-
-        return invoice_code
-
-    def generate_invoice(self, project_id, due_date):
-        """Generate Invoice: builds an invoice from a project's budget,
-        using the commission closure to work out the platform's cut."""
-
-        project = self.find_project(project_id)
-
-        if project is None:
-            raise InvoiceNotFoundError(f"Project '{project_id}' does not exist.")
-
-        if not project.freelancer_id:
-            raise ProjectNotReadyForInvoiceError(
-                "Cannot invoice a project with no freelancer assigned."
-            )
-
-        invoice_code = self.generate_invoice_code()
-        commission = self.commission_calculator(project.budget)
-
-        invoice = Invoice(
-            invoice_code,
-            project_id,
-            project.client_id,
-            project.freelancer_id,
-            project.budget,
-            commission,
-            due_date,
-        )
-
-        self.add_invoice(invoice)
-        self.add_audit_log(
-            project.freelancer_id, "GENERATE_INVOICE", f"Invoice {invoice_code} created."
-        )
-
-        return invoice
-
-    def view_invoice(self, invoice_code):
-        """View Invoice: fetch a single invoice, raising a clear error
-        if the code is unknown so the caller can react cleanly."""
-
-        invoice = self.find_invoice(invoice_code)
-
-        if invoice is None:
-            raise InvoiceNotFoundError(f"Invoice '{invoice_code}' was not found.")
-
-        return invoice
-
-    def update_invoice(self, invoice_code, amount=None, due_date=None):
-        """Update Invoice: change amount and/or due date. Recomputes the
-        commission and net amount whenever the amount changes."""
-
-        invoice = self.view_invoice(invoice_code)
-
-        if amount is not None:
-            invoice.amount = amount
-            invoice.commission = self.commission_calculator(amount)
-            invoice.net_amount = amount - invoice.commission
-
-        if due_date is not None:
-            invoice.due_date = due_date
-
-        return invoice
-
-    def get_invoice_status(self, invoice_code):
-        """Invoice Status: reports Paid / Unpaid / Partially Paid based on
-        payments actually recorded, not just the stored status flag."""
-
-        invoice = self.view_invoice(invoice_code)
-        balance = invoice.balance_due(self.payments)
-
-        if balance <= 0:
-            return "Paid"
-        elif balance < invoice.amount:
-            return "Partially Paid"
-        else:
-            return "Unpaid"
-
-
-    def record_payment(self, invoice_code, amount, payment_method):
-        """Record Payment: validates the invoice exists, the amount is
-        sane, and the payment does not exceed the remaining balance."""
-
-        invoice = self.find_invoice(invoice_code)
-
-        if invoice is None:
-            raise InvoiceNotFoundError(f"Invoice '{invoice_code}' does not exist.")
-
-        try:
-            amount = float(amount)
-        except (TypeError, ValueError):
-            raise InvalidPaymentAmountError("Payment amount must be a number.")
-
-        if amount <= 0:
-            raise InvalidPaymentAmountError("Payment amount must be greater than zero.")
-
-        balance = invoice.balance_due(self.payments)
-
-        if amount > balance:
-            raise PaymentExceedsBalanceError(
-                f"Payment of {amount} exceeds remaining balance of {balance}."
-            )
-
-        payment_id = f"PMT-{len(self.payments) + 1:04d}"
-        payment = Payment(payment_id, invoice_code, invoice.client_id, amount, payment_method)
-        self.add_payment(payment)
-
-        # If the invoice is now fully paid, close it out and credit the
-        # freelancer's running earnings total.
-        new_balance = invoice.balance_due(self.payments)
-
-        if new_balance <= 0:
-            invoice.status = "Paid"
-
-            freelancer = self.find_user(invoice.freelancer_id)
-
-            if freelancer is not None and isinstance(freelancer, Freelancer):
-                freelancer.earnings += invoice.net_amount
-        else:
-            invoice.status = "Partially Paid"
-
-        self.add_audit_log(
-            invoice.client_id, "RECORD_PAYMENT", f"Payment {payment_id} for {invoice_code}."
-        )
-
-        return payment
-
-    def view_payment(self, payment_id):
-        """View Payment: fetch a single payment record."""
-
-        payment = self.find_payment(payment_id)
-
-        if payment is None:
-            raise PaymentNotFoundError(f"Payment '{payment_id}' was not found.")
-
-        return payment
-
-    def get_payment_history(self, invoice_code=None, client_id=None):
-        """Payment History: filter payments by invoice or client. Uses
-        `filter` with a lambda so the predicate stays a one-liner."""
-
-        history = self.payments
-
-        if invoice_code is not None:
-            history = list(filter(lambda payment: payment.invoice_code == invoice_code, history))
-
-        if client_id is not None:
-            history = list(filter(lambda payment: payment.client_id == client_id, history))
-
-        return history
-
-    def get_payment_status(self, payment_id):
-        """Payment Status: simple lookup wrapper around view_payment."""
-
-        return self.view_payment(payment_id).status
-
-    def update_commission_rate(self, new_rate):
-        """Change the platform commission rate. Because the calculator is
-        a closure built with `nonlocal`, every future invoice will use
-        the new rate without needing to rebuild the closure."""
-
-        self.commission_calculator.update_rate(new_rate)
-
-    def get_commission_rate(self):
-        return self.commission_calculator.current_rate()
-
-
-    def calculate_freelancer_earnings(self, freelancer_id):
-        """Total earnings for a freelancer, computed with reduce() over
-        their paid invoices rather than trusting a stored running total."""
-
-        paid_invoices = [
-            invoice
-            for invoice in self.invoices
-            if invoice.freelancer_id == freelancer_id and invoice.status == "Paid"
-        ]
-
-        total_earnings = reduce(
-            lambda total, invoice: total + invoice.net_amount, paid_invoices, 0
-        )
-
-        return round(total_earnings, 2)
-
- 
-    def payment_report(self):
-        """Payment Report: totals payments by status."""
-
-        paid = list(filter(lambda payment: payment.status == "Completed", self.payments))
-        pending = list(filter(lambda payment: payment.status == "Pending", self.payments))
-        failed = list(filter(lambda payment: payment.status == "Failed", self.payments))
-
-        total_amount = reduce(lambda total, payment: total + payment.amount, self.payments, 0)
-
-        return {
-            "total_payments": len(self.payments),
-            "paid": len(paid),
-            "pending": len(pending),
-            "failed": len(failed),
-            "total_amount": round(total_amount, 2),
-        }
-
-    def freelancer_earnings_report(self):
-        """Freelancer Earnings report: one row per freelancer, built with
-        map() over the manager's list of freelancers."""
-
-        freelancers = filter(lambda user: isinstance(user, Freelancer), self.users)
-
-        def build_row(freelancer):
-            completed_projects = list(
-                filter(
-                    lambda project: project.freelancer_id == freelancer.user_id
-                    and project.status == "Completed",
-                    self.projects,
-                )
-            )
-
-            return {
-                "freelancer": freelancer.name,
-                "completed_projects": len(completed_projects),
-                "total_earnings": self.calculate_freelancer_earnings(freelancer.user_id),
-            }
-
-        return list(map(build_row, freelancers))
-
-    def project_report(self):
-        """Project Report: counts active, late, and completed projects."""
-
-        today = datetime.now().strftime("%Y-%m-%d")
-
-        active = list(filter(lambda project: project.status == "In Progress", self.projects))
-        completed = list(filter(lambda project: project.status == "Completed", self.projects))
-        late = list(
-            filter(
-                lambda project: project.status != "Completed" and project.deadline < today,
-                self.projects,
-            )
-        )
-
-        return {
-            "active_projects": len(active),
-            "late_projects": len(late),
-            "completed_projects": len(completed),
-        }
-
-    def dashboard_report(self):
-        """Dashboard: a single summary view aggregating all the reports."""
-
-        clients = list(filter(lambda user: isinstance(user, Client), self.users))
-        freelancers = list(filter(lambda user: isinstance(user, Freelancer), self.users))
-        pay_report = self.payment_report()
-        proj_report = self.project_report()
-
-        total_commission = reduce(
-            lambda total, invoice: total + invoice.commission, self.invoices, 0
-        )
-
-        return {
-            "total_clients": len(clients),
-            "total_freelancers": len(freelancers),
-            "total_projects": len(self.projects),
-            "active_projects": proj_report["active_projects"],
-            "late_projects": proj_report["late_projects"],
-            "total_invoices": len(self.invoices),
-            "total_payments": pay_report["total_payments"],
-            "total_commission": round(total_commission, 2),
-        }
 
     # LINK PROJECT MILESTONES
     def get_project_milestones(self, project_id):
@@ -884,7 +536,7 @@ class Invoice:
 
     def __init__(
         self,
-        invoice_code,
+        invoice_id,
         project_id,
         client_id,
         freelancer_id,
@@ -893,7 +545,7 @@ class Invoice:
         due_date,
         status="Unpaid",
     ):
-        self.invoice_code = invoice_code
+        self.invoice_id = invoice_id
         self.project_id = project_id
         self.client_id = client_id
         self.freelancer_id = freelancer_id
@@ -903,22 +555,9 @@ class Invoice:
         self.due_date = due_date
         self.status = status
 
-    def amount_paid(self, payments):
-        """Sum of completed payments recorded against this invoice."""
-        return reduce(
-            lambda total, payment: total + payment.amount
-            if payment.invoice_code == self.invoice_code and payment.status != "Failed"
-            else total,
-            payments,
-            0,
-        )
-
-    def balance_due(self, payments):
-        return round(self.amount - self.amount_paid(payments), 2)
-
     def to_dict(self):
         return {
-            "invoice_code": self.invoice_code,
+            "invoice_id": self.invoice_id,
             "project_id": self.project_id,
             "client_id": self.client_id,
             "freelancer_id": self.freelancer_id,
@@ -935,7 +574,7 @@ class Payment:
     def __init__(
         self,
         payment_id,
-        invoice_code,
+        invoice_id,
         client_id,
         amount,
         payment_method,
@@ -943,7 +582,7 @@ class Payment:
     ):
 
         self.payment_id = payment_id
-        self.invoice_code = invoice_code
+        self.invoice_id = invoice_id
         self.client_id = client_id
         self.amount = amount
         self.payment_method = payment_method
@@ -952,7 +591,7 @@ class Payment:
     def to_dict(self):
         return {
             "payment_id": self.payment_id,
-            "invoice_code": self.invoice_code,
+            "invoice_id": self.invoice_id,
             "client_id": self.client_id,
             "amount": self.amount,
             "payment_method": self.payment_method,
