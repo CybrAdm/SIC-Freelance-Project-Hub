@@ -1,3 +1,27 @@
+import datetime
+
+
+class MissingFreelancerError(Exception):
+    pass
+
+
+class ProjectIterator:
+
+    def __init__(self, projects):
+        self._projects = projects
+        self._index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._index < len(self._projects):
+            project = self._projects[self._index]
+            self._index += 1
+            return project
+        raise StopIteration
+
+
 class User:
 
     def __init__(self, user_id, name, email, phone, age, gender, city, password, role):
@@ -165,6 +189,7 @@ class Project:
         required_skills=None,
         status="Open",
         priority="Medium",
+        health="On Track",
     ):
         self.project_id = project_id
         self.title = title
@@ -175,8 +200,31 @@ class Project:
         self.deadline = deadline
         self.status = status
         self.priority = priority
+        self.health = health
         self.required_skills = required_skills if required_skills else []
         self.milestones = []
+
+    def get_health(self):
+        if self.status == "Completed":
+            health = "Completed"
+        else:
+            try:
+                deadline_date = datetime.datetime.strptime(
+                    self.deadline, "%Y-%m-%d"
+                ).date()
+                today = datetime.datetime.now().date()
+
+                if today > deadline_date:
+                    health = "Late"
+                elif (deadline_date - today).days <= 3:
+                    health = "At Risk"
+                else:
+                    health = "On Track"
+            except (ValueError, TypeError):
+                health = "On Track"
+
+        self.health = health
+        return health
 
     def to_dict(self):
 
@@ -191,6 +239,7 @@ class Project:
             "required_skills": self.required_skills,
             "status": self.status,
             "priority": self.priority,
+            "health": self.get_health(),
             "milestones": self.milestones,
         }
 
@@ -219,7 +268,13 @@ class Milestone:
     def update_status(self, new_status):
         old_status = self.status
         self.status = new_status
-        self.history.append({"old_status": old_status, "new_status": new_status})
+        self.history.append(
+            {
+                "old_status": old_status,
+                "new_status": new_status,
+                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
 
     def to_dict(self):
         return {

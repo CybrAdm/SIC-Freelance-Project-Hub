@@ -63,6 +63,53 @@ def validate_project_id(project_id):
     return project_id
 
 
+def validate_milestone_id(milestone_id):
+
+    milestone_id = milestone_id.strip().upper()
+
+    if len(milestone_id) == 0:
+        raise ValueError("ID cannot be empty.")
+
+    if len(milestone_id) < 4:
+        raise ValueError("ID must contain at least 4 characters.")
+
+    pattern = r"^M\d{3,}$"
+
+    if not re.match(pattern, milestone_id):
+        raise ValueError(
+            "Invalid Milestone ID. It must start with M "
+            "followed by at least 3 digits (e.g. M101, M2026)."
+        )
+
+    return milestone_id
+
+
+def validate_priority(priority):
+
+    priority = priority.strip().capitalize()
+
+    if priority == "":
+        return "Medium"
+
+    if priority not in ["Low", "Medium", "High"]:
+        raise ValueError("Priority must be Low, Medium, or High.")
+
+    return priority
+
+
+def validate_status(status):
+
+    status = status.strip().title()
+
+    if status == "":
+        return "Open"
+
+    if status not in ["Open", "Pending", "In Progress", "Completed"]:
+        raise ValueError("Status must be Open, Pending, In Progress, or Completed.")
+
+    return status
+
+
 def validate_name(name):
 
     name = name.strip()
@@ -199,6 +246,7 @@ def validate_skills(skills_input):
         raise ValueError("Skills cannot be empty.")
 
     skills = []
+    seen = set()
 
     for skill in skills_input.split(","):
 
@@ -207,7 +255,14 @@ def validate_skills(skills_input):
         if skill == "":
             raise ValueError("Skill cannot be empty.")
 
+        if skill.lower() in seen:
+            continue
+
+        seen.add(skill.lower())
         skills.append(skill)
+
+    if not skills:
+        raise ValueError("Skills cannot be empty.")
 
     return skills
 
@@ -227,7 +282,7 @@ def validate_hourly_rate(hourly_rate):
     if hourly_rate <= 0:
         raise ValueError("Hourly rate must be greater than 0.")
 
-    return hourly_rate
+    return round(hourly_rate, 2)
 
 
 def validate_amount(amount):
@@ -245,7 +300,7 @@ def validate_amount(amount):
     if amount <= 0:
         raise ValueError("Amount must be greater than 0.")
 
-    return amount
+    return round(amount, 2)
 
 
 def validate_date(date):
@@ -261,8 +316,11 @@ def validate_date(date):
         raise ValueError("Invalid date format. Use YYYY-MM-DD.")
 
     try:
-        datetime.datetime.strptime(date, "%Y-%m-%d")
+        parsed_date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError:
         raise ValueError("Invalid date. This date does not exist.")
+
+    if parsed_date < datetime.datetime.now().date():
+        raise ValueError("Date cannot be in the past.")
 
     return date

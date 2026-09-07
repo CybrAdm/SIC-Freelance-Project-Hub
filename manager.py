@@ -2,8 +2,6 @@ import datetime
 import json
 import os
 
-MAX_ACTIVE_PROJECTS = 3
-
 from classes import (
     User,
     Client,
@@ -28,8 +26,21 @@ from validators import (
     validate_hourly_rate,
 )
 
+MAX_ACTIVE_PROJECTS = 3
 
-class FreelanceManager:
+
+def count_active_projects(freelancer_id, manager):
+    active_statuses = ("Pending", "In Progress")
+    count = 0
+
+    for project in manager.projects:
+        if project.freelancer_id == freelancer_id and project.status in active_statuses:
+            count += 1
+
+    return count
+
+
+class Manager:
 
     def __init__(self):
         self.users = []
@@ -178,19 +189,6 @@ class FreelanceManager:
 
         return user_projects
 
-    def count_active_projects(freelancer_id, manager):
-        active_statuses = ("Pending", "In Progress")
-        count = 0
-
-        for project in manager.projects:
-            if (
-                project.freelancer_id == freelancer_id
-                and project.status in active_statuses
-            ):
-                count += 1
-
-        return count
-
     def get_available_projects(self, user):
         available_projects = []
 
@@ -205,12 +203,59 @@ class FreelanceManager:
                 available_projects.append(project)
                 continue
 
-            for skill in user.skills:
-                if skill in project.required_skills:
+            user_skills = [skill.lower() for skill in user.skills]
+
+            for skill in project.required_skills:
+                if skill.lower() in user_skills:
                     available_projects.append(project)
                     break
 
         return available_projects
+
+    def get_active_projects(self, user=None):
+        if user is None:
+            projects = self.projects
+        else:
+            projects = self.get_user_projects(user)
+
+        return list(filter(lambda p: p.status in ("Pending", "In Progress"), projects))
+
+    def get_late_projects(self, user=None):
+        if user is None:
+            projects = self.projects
+        else:
+            projects = self.get_user_projects(user)
+
+        return list(filter(lambda p: p.get_health() == "Late", projects))
+
+    def sort_projects_by_deadline(self, projects=None):
+        if projects is not None:
+            proj_list = projects
+        else:
+            proj_list = self.projects
+
+        return sorted(proj_list, key=lambda p: p.deadline)
+
+    def sort_projects_by_budget(self, projects=None, descending=True):
+        if projects is not None:
+            proj_list = projects
+        else:
+            proj_list = self.projects
+
+        return sorted(proj_list, key=lambda p: float(p.budget), reverse=descending)
+
+    def sort_projects_by_priority(self, projects=None):
+        if projects is not None:
+            proj_list = projects
+        else:
+            proj_list = self.projects
+
+        priority_order = {"High": 1, "Medium": 2, "Low": 3}
+
+        return sorted(
+            proj_list,
+            key=lambda p: priority_order.get(p.priority, 4),
+        )
 
     # LINK PROJECT MILESTONES
     def get_project_milestones(self, project_id):
@@ -371,7 +416,8 @@ class FreelanceManager:
                     project_data["deadline"],
                     project_data.get("required_skills", []),
                     project_data["status"],
-                    project_data["priority"],
+                    project_data.get("priority", "Medium"),
+                    project_data.get("health", "On Track"),
                 )
 
                 project.milestones = project_data.get("milestones", [])
@@ -453,6 +499,10 @@ class FreelanceManager:
         except FileNotFoundError:
 
             print("\n[ERROR] Data files are not found.\n")
+
+        except KeyError:
+
+            print("\n[ERROR] Data files are missing required fields.\n")
 
 
 class Authentication:

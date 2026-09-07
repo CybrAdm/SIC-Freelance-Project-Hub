@@ -1,9 +1,9 @@
-from manager import FreelanceManager, Authentication
+from manager import Manager, Authentication
 from menus import landing_page
 
 
 def main():
-    manager = FreelanceManager()
+    manager = Manager()
     manager.load_data()
     auth = Authentication(manager)
 
