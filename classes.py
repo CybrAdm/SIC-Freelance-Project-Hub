@@ -1,7 +1,48 @@
 import datetime
+from functools import reduce
 
 
 class MissingFreelancerError(Exception):
+    pass
+
+
+class InvalidInvoiceCodeError(Exception):
+    """Raised when an invoice code does not match the required format."""
+    pass
+
+
+class InvoiceNotFoundError(Exception):
+    """Raised when an operation references an invoice code that does not exist."""
+    pass
+
+
+class ProjectNotReadyForInvoiceError(Exception):
+    """Raised when a project cannot be invoiced (no freelancer assigned, etc.)."""
+    pass
+
+
+class InvalidPaymentAmountError(Exception):
+    """Raised when a payment amount is zero, negative, or not a number."""
+    pass
+
+
+class PaymentExceedsBalanceError(Exception):
+    """Raised when a payment would pay more than the invoice's remaining balance."""
+    pass
+
+
+class PaymentNotFoundError(Exception):
+    """Raised when a payment ID does not exist."""
+    pass
+
+
+class MilestoneNotFoundError(Exception):
+    """Raised when a milestone ID does not exist."""
+    pass
+
+
+class UnauthorizedAccessError(Exception):
+    """Raised when a user tries to view or modify data that does not belong to them."""
     pass
 
 
@@ -40,14 +81,21 @@ class User:
     def profile_summary(self):
         status = "Active" if self.active else "Inactive"
         return (
-            "\n" + "=" * 50 + "\n"
-            "                 USER PROFILE\n" + "=" * 50 + "\n"
-            f"  User ID       : {self.user_id}\n"
-            f"  Name          : {self.name}\n"
-            f"  Email         : {self.email}\n"
-            f"  Phone         : {self.phone}\n"
-            f"  Role          : {self.role}\n"
-            f"  Status        : {status}\n" + "=" * 50 + "\n"
+            "\n"
+            + "-" * 50
+            + "\n"
+            + "USER PROFILE".center(50)
+            + "\n"
+            + "-" * 50
+            + "\n"
+            + f"    User ID: {self.user_id}\n"
+            + f"    Name: {self.name}\n"
+            + f"    Email: {self.email}\n"
+            + f"    Phone: {self.phone}\n"
+            + f"    Role: {self.role}\n"
+            + f"    Status: {status}\n"
+            + "-" * 50
+            + "\n"
         )
 
     def to_dict(self):
@@ -80,18 +128,25 @@ class Client(User):
     def profile_summary(self):
         status = "Active" if self.active else "Inactive"
         return (
-            "\n" + "=" * 50 + "\n"
-            "                CLIENT PROFILE\n" + "=" * 50 + "\n"
-            f"  ID            : {self.user_id}\n"
-            f"  Name          : {self.name}\n"
-            f"  Email         : {self.email}\n"
-            f"  Phone         : {self.phone}\n"
-            f"  Age           : {self.age}\n"
-            f"  Gender        : {self.gender}\n"
-            f"  City          : {self.city}\n"
-            f"  Company       : {self.company_name}\n"
-            f"  Projects      : {len(self.project_ids)}\n"
-            f"  Status        : {status}\n" + "=" * 50 + "\n"
+            "\n"
+            + "-" * 50
+            + "\n"
+            + "CLIENT PROFILE".center(50)
+            + "\n"
+            + "-" * 50
+            + "\n"
+            + f"    ID: {self.user_id}\n"
+            + f"    Name: {self.name}\n"
+            + f"    Email: {self.email}\n"
+            + f"    Phone: {self.phone}\n"
+            + f"    Age: {self.age}\n"
+            + f"    Gender: {self.gender}\n"
+            + f"    City: {self.city}\n"
+            + f"    Company: {self.company_name}\n"
+            + f"    Projects: {len(self.project_ids)}\n"
+            + f"    Status: {status}\n"
+            + "-" * 50
+            + "\n"
         )
 
     def to_dict(self):
@@ -139,20 +194,27 @@ class Freelancer(User):
         status = "Active" if self.active else "Inactive"
         skills = ", ".join(self.skills)
         return (
-            "\n" + "=" * 50 + "\n"
-            "              FREELANCER PROFILE\n" + "=" * 50 + "\n"
-            f"  ID            : {self.user_id}\n"
-            f"  Name          : {self.name}\n"
-            f"  Email         : {self.email}\n"
-            f"  Phone         : {self.phone}\n"
-            f"  Age           : {self.age}\n"
-            f"  Gender        : {self.gender}\n"
-            f"  City          : {self.city}\n"
-            f"  Skills        : {skills}\n"
-            f"  Hourly Rate   : {self.hourly_rate}\n"
-            f"  Projects      : {len(self.project_ids)}\n"
-            f"  Earnings      : {self.earnings}\n"
-            f"  Status        : {status}\n" + "=" * 50 + "\n"
+            "\n"
+            + "-" * 50
+            + "\n"
+            + "FREELANCER PROFILE".center(50)
+            + "\n"
+            + "-" * 50
+            + "\n"
+            + f"    ID: {self.user_id}\n"
+            + f"    Name: {self.name}\n"
+            + f"    Email: {self.email}\n"
+            + f"    Phone: {self.phone}\n"
+            + f"    Age: {self.age}\n"
+            + f"    Gender: {self.gender}\n"
+            + f"    City: {self.city}\n"
+            + f"    Skills: {skills}\n"
+            + f"    Hourly Rate: {self.hourly_rate}\n"
+            + f"    Projects: {len(self.project_ids)}\n"
+            + f"    Earnings: {self.earnings}\n"
+            + f"    Status: {status}\n"
+            + "-" * 50
+            + "\n"
         )
 
     def to_dict(self):
@@ -293,7 +355,7 @@ class Invoice:
 
     def __init__(
         self,
-        invoice_id,
+        invoice_code,
         project_id,
         client_id,
         freelancer_id,
@@ -302,7 +364,8 @@ class Invoice:
         due_date,
         status="Unpaid",
     ):
-        self.invoice_id = invoice_id
+        self.invoice_code = invoice_code
+        self.invoice_id = invoice_code
         self.project_id = project_id
         self.client_id = client_id
         self.freelancer_id = freelancer_id
@@ -312,9 +375,22 @@ class Invoice:
         self.due_date = due_date
         self.status = status
 
+    def amount_paid(self, payments):
+        """Sum of completed payments recorded against this invoice."""
+        return reduce(
+            lambda total, payment: total + payment.amount
+            if payment.invoice_code == self.invoice_code and payment.status != "Failed"
+            else total,
+            payments,
+            0,
+        )
+
+    def balance_due(self, payments):
+        return round(self.amount - self.amount_paid(payments), 2)
+
     def to_dict(self):
         return {
-            "invoice_id": self.invoice_id,
+            "invoice_code": self.invoice_code,
             "project_id": self.project_id,
             "client_id": self.client_id,
             "freelancer_id": self.freelancer_id,
@@ -331,7 +407,7 @@ class Payment:
     def __init__(
         self,
         payment_id,
-        invoice_id,
+        invoice_code,
         client_id,
         amount,
         payment_method,
@@ -339,7 +415,8 @@ class Payment:
     ):
 
         self.payment_id = payment_id
-        self.invoice_id = invoice_id
+        self.invoice_code = invoice_code
+        self.invoice_id = invoice_code
         self.client_id = client_id
         self.amount = amount
         self.payment_method = payment_method
@@ -348,7 +425,7 @@ class Payment:
     def to_dict(self):
         return {
             "payment_id": self.payment_id,
-            "invoice_id": self.invoice_id,
+            "invoice_code": self.invoice_code,
             "client_id": self.client_id,
             "amount": self.amount,
             "payment_method": self.payment_method,

@@ -2,8 +2,44 @@ import datetime
 import re
 
 
+CANCEL_HINT = "(Type cancel, back, or n to return.)"
+
+
 def is_cancel(value):
-    return value.strip().lower() == "cancel"
+    return str(value).strip().lower() in ("cancel", "back", "n")
+
+
+def return_to(menu_name):
+    print(f"\nReturning to {menu_name}...")
+
+
+def print_menu(title):
+    print("\n" + "=" * 50)
+    print(title.center(50))
+    print("=" * 50)
+
+
+def print_screen(title, hint=CANCEL_HINT):
+    print("\n" + "-" * 50)
+    print(title.center(50))
+    print("-" * 50)
+    if hint is not None:
+        print(hint)
+        print("-" * 50)
+
+
+def confirm_yes(prompt, back_menu):
+    while True:
+        answer = input(prompt).strip().lower()
+
+        if answer == "y":
+            return True
+
+        if is_cancel(answer):
+            return_to(back_menu)
+            return False
+
+        print("[ERROR] Please enter y or n.")
 
 
 def validate_user_id(user_id, expected_role=None, allow_admin=True):
@@ -61,6 +97,31 @@ def validate_project_id(project_id):
         )
 
     return project_id
+
+
+INVOICE_CODE_PATTERN = re.compile(r"^I\d{3,}$")
+
+
+def is_valid_invoice_code(invoice_code):
+    """Regex validation for invoice codes. Returns True/False."""
+    return bool(INVOICE_CODE_PATTERN.match(invoice_code))
+
+
+def validate_commission_rate(rate):
+    rate = str(rate).strip()
+
+    if rate == "":
+        raise ValueError("Commission rate cannot be empty.")
+
+    try:
+        rate = float(rate)
+    except ValueError:
+        raise ValueError("Commission rate must be a number.")
+
+    if rate < 0 or rate > 1:
+        raise ValueError("Commission rate must be between 0 and 1.")
+
+    return rate
 
 
 def validate_milestone_id(milestone_id):

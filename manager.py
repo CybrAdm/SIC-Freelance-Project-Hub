@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+from functools import reduce
 
 from classes import (
     User,
@@ -10,9 +11,21 @@ from classes import (
     Milestone,
     Invoice,
     Payment,
+    InvalidInvoiceCodeError,
+    InvoiceNotFoundError,
+    ProjectNotReadyForInvoiceError,
+    InvalidPaymentAmountError,
+    PaymentExceedsBalanceError,
+    PaymentNotFoundError,
+    MilestoneNotFoundError,
+    UnauthorizedAccessError,
 )
 from validators import (
     is_cancel,
+    print_menu,
+    print_screen,
+    return_to,
+    is_valid_invoice_code,
     validate_user_id,
     validate_name,
     validate_age,
@@ -26,7 +39,32 @@ from validators import (
     validate_hourly_rate,
 )
 
+from menus import freelancer_matches_project
+
 MAX_ACTIVE_PROJECTS = 3
+
+
+def make_commission_calculator(initial_rate=0.10):
+    rate = initial_rate
+
+    def calculate(amount):
+        return round(amount * rate, 2)
+
+    def update_rate(new_rate):
+        nonlocal rate
+
+        if new_rate < 0 or new_rate > 1:
+            raise ValueError("Commission rate must be between 0 and 1.")
+
+        rate = new_rate
+
+    def current_rate():
+        return rate
+
+    calculate.update_rate = update_rate
+    calculate.current_rate = current_rate
+
+    return calculate
 
 
 def count_active_projects(freelancer_id, manager):
@@ -49,6 +87,8 @@ class Manager:
         self.invoices = []
         self.payments = []
         self.audit_logs = []
+
+        self.commission_calculator = make_commission_calculator(0.10)
 
         self.create_data_files()
 
@@ -80,6 +120,15 @@ class Manager:
                     json.dump([], file, indent=4)
 
                 created = True
+
+        settings_path = "data/settings.json"
+
+        if not os.path.exists(settings_path):
+
+            with open(settings_path, "w") as file:
+                json.dump({"commission_rate": 0.10}, file, indent=4)
+
+            created = True
 
         if created:
             print("Data files created successfully.")
@@ -139,11 +188,11 @@ class Manager:
 
         return None
 
-    def find_invoice(self, invoice_id):
+    def find_invoice(self, invoice_code):
 
         for invoice in self.invoices:
 
-            if invoice.invoice_id == invoice_id:
+            if invoice.invoice_code == invoice_code:
                 return invoice
 
         return None
@@ -175,6 +224,533 @@ class Manager:
 
         return None
 
+    def _is_admin(self, user_id):
+        user = self.find_user(user_id)
+        return user is not None and getattr(user, "role", None) == "Admin"
+
+    def _check_invoice_ownership(self, invoice, requesting_user_id):
+        """An invoice belongs to exactly one client and one freelancer."""
+
+        if requesting_user_id is None or self._is_admin(requesting_user_id):
+            return
+
+        if requesting_user_id not in (invoice.client_id, invoice.freelancer_id):
+            raise UnauthorizedAccessError(
+                f"User '{requesting_user_id}' is not authorized to access "
+                f"invoice '{invoice.invoice_code}'."
+            )
+
+    def _check_payment_ownership(self, payment, requesting_user_id):
+        """A payment belongs to the client who paid it and, through the
+        invoice it settles, to the freelancer who is owed it."""
+
+        if requesting_user_id is None or self._is_admin(requesting_user_id):
+            return
+
+        allowed_ids = {payment.client_id}
+
+        invoice = self.find_invoice(payment.invoice_code)
+        if invoice is not None:
+            allowed_ids.add(invoice.freelancer_id)
+
+        if requesting_user_id not in allowed_ids:
+            raise UnauthorizedAccessError(
+                f"User '{requesting_user_id}' is not authorized to access "
+                f"payment '{payment.payment_id}'."
+            )
+
+    def _check_milestone_ownership(self, milestone, requesting_user_id):
+        """A milestone belongs to the client and freelancer of its project."""
+
+        if requesting_user_id is None or self._is_admin(requesting_user_id):
+            return
+
+        project = self.find_project(milestone.project_id)
+
+        allowed_ids = set()
+        if project is not None:
+            allowed_ids = {project.client_id, project.freelancer_id}
+
+        if requesting_user_id not in allowed_ids:
+            raise UnauthorizedAccessError(
+                f"User '{requesting_user_id}' is not authorized to access "
+                f"milestone '{milestone.milestone_id}'."
+            )
+
+    def _check_project_ownership(self, project, requesting_user_id):
+        """A project belongs to its client and its assigned freelancer."""
+
+        if requesting_user_id is None or self._is_admin(requesting_user_id):
+            return
+
+        if requesting_user_id not in (project.client_id, project.freelancer_id):
+            raise UnauthorizedAccessError(
+                f"User '{requesting_user_id}' is not authorized to access "
+                f"project '{project.project_id}'."
+            )
+
+    def generate_invoice_code(self):
+        """Auto-generate a new invoice code in the I000 format
+        and confirm it passes the regex validation rule."""
+
+        sequence = 1
+        existing_codes = {invoice.invoice_code for invoice in self.invoices}
+
+        while True:
+            invoice_code = f"I{sequence:03d}"
+            if invoice_code not in existing_codes:
+                break
+            sequence += 1
+
+        if not is_valid_invoice_code(invoice_code):
+            raise InvalidInvoiceCodeError(
+                f"Generated invoice code '{invoice_code}' failed validation."
+            )
+
+        return invoice_code
+
+    def generate_invoice(self, project_id, due_date, requesting_user_id=None):
+        """Generate Invoice: builds an invoice from a project's budget,
+        using the commission closure to work out the platform's cut.
+
+        Only the client who owns the project or the freelancer assigned
+        to it may generate an invoice for it."""
+
+        project = self.find_project(project_id)
+
+        if project is None:
+            raise InvoiceNotFoundError(f"Project '{project_id}' does not exist.")
+
+        self._check_project_ownership(project, requesting_user_id)
+
+        if not project.freelancer_id:
+            raise ProjectNotReadyForInvoiceError(
+                "Cannot invoice a project with no freelancer assigned."
+            )
+
+        for existing_invoice in self.invoices:
+            if existing_invoice.project_id == project_id:
+                raise ValueError(
+                    f"Project '{project_id}' already has invoice "
+                    f"'{existing_invoice.invoice_code}'."
+                )
+
+        invoice_code = self.generate_invoice_code()
+        commission = self.commission_calculator(project.budget)
+
+        invoice = Invoice(
+            invoice_code,
+            project_id,
+            project.client_id,
+            project.freelancer_id,
+            project.budget,
+            commission,
+            due_date,
+        )
+
+        self.add_invoice(invoice)
+        actor_id = requesting_user_id or project.client_id
+        self.add_audit_log(
+            actor_id,
+            "GENERATE_INVOICE",
+            f"Invoice {invoice_code} created for project {project_id}.",
+        )
+
+        return invoice
+
+    def view_invoice(self, invoice_code, requesting_user_id=None):
+        """View Invoice: fetch a single invoice, raising a clear error
+        if the code is unknown so the caller can react cleanly.
+
+        If requesting_user_id is given, only the client or freelancer
+        attached to the invoice (or an Admin) may view it."""
+
+        invoice = self.find_invoice(invoice_code)
+
+        if invoice is None:
+            raise InvoiceNotFoundError(f"Invoice '{invoice_code}' was not found.")
+
+        self._check_invoice_ownership(invoice, requesting_user_id)
+
+        return invoice
+
+    def update_invoice(
+        self, invoice_code, amount=None, due_date=None, requesting_user_id=None
+    ):
+        """Update Invoice: change amount and/or due date. Recomputes the
+        commission and net amount whenever the amount changes.
+
+        Only the freelancer who issued the invoice (or an Admin) may
+        update it - clients are not allowed to edit invoice figures."""
+
+        invoice = self.view_invoice(invoice_code, requesting_user_id=None)
+
+        if requesting_user_id is not None and not self._is_admin(requesting_user_id):
+            if requesting_user_id != invoice.freelancer_id:
+                raise UnauthorizedAccessError(
+                    f"User '{requesting_user_id}' is not authorized to update "
+                    f"invoice '{invoice_code}'."
+                )
+
+        if amount is not None:
+            try:
+                amount = round(float(amount), 2)
+            except (TypeError, ValueError):
+                raise InvalidPaymentAmountError("Invoice amount must be a number.")
+
+            if amount <= 0:
+                raise InvalidPaymentAmountError(
+                    "Invoice amount must be greater than zero."
+                )
+
+            already_paid = round(invoice.amount_paid(self.payments), 2)
+
+            if amount < already_paid:
+                raise InvalidPaymentAmountError(
+                    f"New amount cannot be less than already paid ({already_paid})."
+                )
+
+            invoice.amount = amount
+            invoice.commission = self.commission_calculator(amount)
+            invoice.net_amount = round(amount - invoice.commission, 2)
+
+            paid = round(invoice.amount_paid(self.payments), 2)
+            if paid <= 0:
+                invoice.status = "Unpaid"
+            elif paid < invoice.amount:
+                invoice.status = "Partially Paid"
+            else:
+                invoice.status = "Paid"
+
+            freelancer = self.find_user(invoice.freelancer_id)
+            if freelancer is not None and freelancer.role == "Freelancer":
+                freelancer.earnings = self.calculate_freelancer_earnings(
+                    freelancer.user_id
+                )
+
+        if due_date is not None:
+            invoice.due_date = due_date
+
+        actor_id = requesting_user_id or invoice.freelancer_id
+        self.add_audit_log(
+            actor_id,
+            "UPDATE_INVOICE",
+            f"Invoice {invoice_code} updated.",
+        )
+
+        return invoice
+
+    def get_invoice_status(self, invoice_code, requesting_user_id=None):
+        """Invoice Status: reports Paid / Unpaid / Partially Paid based on
+        payments actually recorded, not just the stored status flag."""
+
+        invoice = self.view_invoice(invoice_code, requesting_user_id)
+        balance = invoice.balance_due(self.payments)
+
+        if balance <= 0:
+            return "Paid"
+        elif balance < invoice.amount:
+            return "Partially Paid"
+        else:
+            return "Unpaid"
+
+    def record_payment(
+        self, invoice_code, amount, payment_method, requesting_user_id=None
+    ):
+        """Record Payment: validates the invoice exists, the amount is
+        sane, and the payment does not exceed the remaining balance.
+
+        Only the client who owns the invoice (or an Admin) may pay it -
+        a freelancer should never be able to "pay" their own invoice."""
+
+        invoice = self.find_invoice(invoice_code)
+
+        if invoice is None:
+            raise InvoiceNotFoundError(f"Invoice '{invoice_code}' does not exist.")
+
+        if requesting_user_id is not None and not self._is_admin(requesting_user_id):
+            if requesting_user_id != invoice.client_id:
+                raise UnauthorizedAccessError(
+                    f"User '{requesting_user_id}' is not authorized to pay "
+                    f"invoice '{invoice_code}'."
+                )
+
+        try:
+            amount = round(float(amount), 2)
+        except (TypeError, ValueError):
+            raise InvalidPaymentAmountError("Payment amount must be a number.")
+
+        if amount <= 0:
+            raise InvalidPaymentAmountError("Payment amount must be greater than zero.")
+
+        balance = invoice.balance_due(self.payments)
+
+        if amount > balance:
+            raise PaymentExceedsBalanceError(
+                f"Payment of {amount} exceeds remaining balance of {balance}."
+            )
+
+        existing_ids = {payment.payment_id for payment in self.payments}
+        sequence = 1
+
+        while True:
+            payment_id = f"PAY{sequence:03d}"
+            if payment_id not in existing_ids:
+                break
+            sequence += 1
+
+        payment = Payment(
+            payment_id, invoice_code, invoice.client_id, amount, payment_method
+        )
+        self.add_payment(payment)
+
+        paid = round(invoice.amount_paid(self.payments), 2)
+        if paid <= 0:
+            invoice.status = "Unpaid"
+        elif paid < invoice.amount:
+            invoice.status = "Partially Paid"
+        else:
+            invoice.status = "Paid"
+
+        freelancer = self.find_user(invoice.freelancer_id)
+        if freelancer is not None and freelancer.role == "Freelancer":
+            freelancer.earnings = self.calculate_freelancer_earnings(freelancer.user_id)
+
+        actor_id = requesting_user_id or invoice.client_id
+        self.add_audit_log(
+            actor_id,
+            "RECORD_PAYMENT",
+            f"Payment {payment_id} of {amount} recorded for {invoice_code}.",
+        )
+
+        return payment
+
+    def view_payment(self, payment_id, requesting_user_id=None):
+        """View Payment: fetch a single payment record.
+
+        Only the client who made the payment or the freelancer who is
+        owed it (via the related invoice), or an Admin, may view it."""
+
+        payment = self.find_payment(payment_id)
+
+        if payment is None:
+            raise PaymentNotFoundError(f"Payment '{payment_id}' was not found.")
+
+        self._check_payment_ownership(payment, requesting_user_id)
+
+        return payment
+
+    def get_payment_history(
+        self, invoice_code=None, client_id=None, requesting_user_id=None
+    ):
+        """Payment History: filter payments by invoice or client. Uses
+        `filter` with a lambda so the predicate stays a one-liner.
+
+        When requesting_user_id is given (and is not an Admin), results
+        are always narrowed down to payments that user is allowed to
+        see, regardless of the invoice_code/client_id filters passed in."""
+
+        history = self.payments
+
+        if invoice_code is not None:
+            history = list(
+                filter(lambda payment: payment.invoice_code == invoice_code, history)
+            )
+
+        if client_id is not None:
+            history = list(
+                filter(lambda payment: payment.client_id == client_id, history)
+            )
+
+        if requesting_user_id is not None and not self._is_admin(requesting_user_id):
+
+            def is_visible(payment):
+                if payment.client_id == requesting_user_id:
+                    return True
+                invoice = self.find_invoice(payment.invoice_code)
+                return (
+                    invoice is not None and invoice.freelancer_id == requesting_user_id
+                )
+
+            history = list(filter(is_visible, history))
+
+        return history
+
+    def get_payment_status(self, payment_id, requesting_user_id=None):
+        """Payment Status: simple lookup wrapper around view_payment."""
+
+        return self.view_payment(payment_id, requesting_user_id).status
+
+    def update_commission_rate(self, new_rate, requesting_user_id=None):
+        """Change the platform commission rate. Because the calculator is
+        a closure built with `nonlocal`, every future invoice will use
+        the new rate without needing to rebuild the closure.
+
+        This is a platform-wide setting, so only an Admin may change it."""
+
+        if requesting_user_id is not None and not self._is_admin(requesting_user_id):
+            raise UnauthorizedAccessError(
+                f"User '{requesting_user_id}' is not authorized to change the "
+                "commission rate."
+            )
+
+        self.commission_calculator.update_rate(new_rate)
+        actor_id = requesting_user_id or "SYSTEM"
+        self.add_audit_log(
+            actor_id,
+            "COMMISSION_RATE_UPDATED",
+            f"Commission rate changed to {new_rate}.",
+        )
+
+    def get_commission_rate(self):
+        return self.commission_calculator.current_rate()
+
+    def calculate_freelancer_earnings(self, freelancer_id, requesting_user_id=None):
+        """Total earnings for a freelancer, computed with reduce() over
+        their paid invoices rather than trusting a stored running total.
+
+        Only the freelancer themself (or an Admin) may request this."""
+
+        if (
+            requesting_user_id is not None
+            and not self._is_admin(requesting_user_id)
+            and requesting_user_id != freelancer_id
+        ):
+            raise UnauthorizedAccessError(
+                f"User '{requesting_user_id}' is not authorized to view "
+                f"earnings for freelancer '{freelancer_id}'."
+            )
+
+        paid_invoices = [
+            invoice
+            for invoice in self.invoices
+            if invoice.freelancer_id == freelancer_id and invoice.status == "Paid"
+        ]
+
+        total_earnings = reduce(
+            lambda total, invoice: total + invoice.net_amount, paid_invoices, 0
+        )
+
+        return round(total_earnings, 2)
+
+    def payment_report(self, requesting_user_id=None):
+        """Payment Report: totals payments by status. Aggregate reports
+        touch everyone's data, so this is Admin-only."""
+
+        if requesting_user_id is not None and not self._is_admin(requesting_user_id):
+            raise UnauthorizedAccessError(
+                f"User '{requesting_user_id}' is not authorized to view the "
+                "payment report."
+            )
+
+        paid = list(
+            filter(lambda payment: payment.status == "Completed", self.payments)
+        )
+        pending = list(
+            filter(lambda payment: payment.status == "Pending", self.payments)
+        )
+        failed = list(filter(lambda payment: payment.status == "Failed", self.payments))
+
+        total_amount = reduce(
+            lambda total, payment: total + payment.amount, self.payments, 0
+        )
+
+        return {
+            "total_payments": len(self.payments),
+            "paid": len(paid),
+            "pending": len(pending),
+            "failed": len(failed),
+            "total_amount": round(total_amount, 2),
+        }
+
+    def freelancer_earnings_report(self, requesting_user_id=None):
+        """Freelancer Earnings report: one row per freelancer, built with
+        map() over the manager's list of freelancers. Admin-only, since
+        it exposes every freelancer's earnings side by side."""
+
+        if requesting_user_id is not None and not self._is_admin(requesting_user_id):
+            raise UnauthorizedAccessError(
+                f"User '{requesting_user_id}' is not authorized to view the "
+                "freelancer earnings report."
+            )
+
+        freelancers = filter(lambda user: user.role == "Freelancer", self.users)
+
+        def build_row(freelancer):
+            completed_projects = list(
+                filter(
+                    lambda project: project.freelancer_id == freelancer.user_id
+                    and project.status == "Completed",
+                    self.projects,
+                )
+            )
+
+            return {
+                "freelancer": freelancer.name,
+                "completed_projects": len(completed_projects),
+                "total_earnings": self.calculate_freelancer_earnings(
+                    freelancer.user_id
+                ),
+            }
+
+        return list(map(build_row, freelancers))
+
+    def project_report(self, requesting_user_id=None):
+        if requesting_user_id is not None and not self._is_admin(requesting_user_id):
+            raise UnauthorizedAccessError(
+                f"User '{requesting_user_id}' is not authorized to view the "
+                "project report."
+            )
+
+        active = list(
+            filter(
+                lambda project: project.status in ("Pending", "In Progress"),
+                self.projects,
+            )
+        )
+        completed = list(
+            filter(lambda project: project.status == "Completed", self.projects)
+        )
+        late = list(
+            filter(lambda project: project.get_health() == "Late", self.projects)
+        )
+
+        return {
+            "active_projects": len(active),
+            "late_projects": len(late),
+            "completed_projects": len(completed),
+        }
+
+    def dashboard_report(self, requesting_user_id=None):
+        """Dashboard: a single summary view aggregating all the reports.
+        Admin-only, for the same reason as the other reports."""
+
+        if requesting_user_id is not None and not self._is_admin(requesting_user_id):
+            raise UnauthorizedAccessError(
+                f"User '{requesting_user_id}' is not authorized to view the "
+                "dashboard."
+            )
+
+        clients = list(filter(lambda user: user.role == "Client", self.users))
+        freelancers = list(filter(lambda user: user.role == "Freelancer", self.users))
+        pay_report = self.payment_report()
+        proj_report = self.project_report()
+
+        total_commission = reduce(
+            lambda total, invoice: total + invoice.commission, self.invoices, 0
+        )
+
+        return {
+            "total_clients": len(clients),
+            "total_freelancers": len(freelancers),
+            "total_projects": len(self.projects),
+            "active_projects": proj_report["active_projects"],
+            "late_projects": proj_report["late_projects"],
+            "total_invoices": len(self.invoices),
+            "total_payments": pay_report["total_payments"],
+            "total_commission": round(total_commission, 2),
+        }
+
     # GET USER PROJECTS
     def get_user_projects(self, user):
         user_projects = []
@@ -195,20 +771,10 @@ class Manager:
         for project in self.projects:
             if project.freelancer_id:
                 continue
-
             if project.status != "Open":
                 continue
-
-            if not project.required_skills:
+            if freelancer_matches_project(user, project):
                 available_projects.append(project)
-                continue
-
-            user_skills = [skill.lower() for skill in user.skills]
-
-            for skill in project.required_skills:
-                if skill.lower() in user_skills:
-                    available_projects.append(project)
-                    break
 
         return available_projects
 
@@ -258,7 +824,15 @@ class Manager:
         )
 
     # LINK PROJECT MILESTONES
-    def get_project_milestones(self, project_id):
+    def get_project_milestones(self, project_id, requesting_user_id=None):
+        """Only the client or freelancer of the project (or an Admin)
+        may list its milestones."""
+
+        project = self.find_project(project_id)
+
+        if project is not None:
+            self._check_project_ownership(project, requesting_user_id)
+
         project_milestones = []
 
         for milestone in self.milestones:
@@ -266,6 +840,19 @@ class Manager:
                 project_milestones.append(milestone)
 
         return project_milestones
+
+    def view_milestone(self, milestone_id, requesting_user_id=None):
+        """View Milestone: fetch a single milestone, restricted to the
+        client/freelancer of its project (or an Admin)."""
+
+        milestone = self.find_milestone(milestone_id)
+
+        if milestone is None:
+            raise MilestoneNotFoundError(f"Milestone '{milestone_id}' was not found.")
+
+        self._check_milestone_ownership(milestone, requesting_user_id)
+
+        return milestone
 
     def sync_project_milestones(self, project_id):
         project = self.find_project(project_id)
@@ -280,6 +867,22 @@ class Manager:
                 project.milestones.append(milestone.milestone_id)
 
         return project.milestones
+
+    def unassign_freelancer_from_project(self, project, requesting_actor_id=None):
+
+        if not project.freelancer_id:
+            return
+
+        freelancer = self.find_user(project.freelancer_id)
+
+        if freelancer is not None and project.project_id in freelancer.project_ids:
+            freelancer.project_ids.remove(project.project_id)
+
+        project.freelancer_id = ""
+
+        for milestone in self.get_project_milestones(project.project_id):
+            if milestone.status not in ("Approved", "Paid"):
+                milestone.update_status("Pending")
 
     # SAVE DATA
     def save_data(self, msg=True):
@@ -327,6 +930,9 @@ class Manager:
 
         with open("data/audit_logs.json", "w") as file:
             json.dump(self.audit_logs, file, indent=4)
+
+        with open("data/settings.json", "w") as file:
+            json.dump({"commission_rate": self.get_commission_rate()}, file, indent=4)
 
         if msg:
             print("Data saved successfully.")
@@ -454,8 +1060,12 @@ class Manager:
 
             for invoice_data in invoices_data:
 
+                invoice_code = invoice_data.get("invoice_code") or invoice_data.get(
+                    "invoice_id"
+                )
+
                 invoice = Invoice(
-                    invoice_data["invoice_id"],
+                    invoice_code,
                     invoice_data["project_id"],
                     invoice_data["client_id"],
                     invoice_data["freelancer_id"],
@@ -475,9 +1085,13 @@ class Manager:
 
             for payment_data in payments_data:
 
+                invoice_code = payment_data.get("invoice_code") or payment_data.get(
+                    "invoice_id"
+                )
+
                 payment = Payment(
                     payment_data["payment_id"],
-                    payment_data["invoice_id"],
+                    invoice_code,
                     payment_data["client_id"],
                     payment_data["amount"],
                     payment_data["payment_method"],
@@ -489,6 +1103,57 @@ class Manager:
             # LOAD AUDIT LOGS
             with open("data/audit_logs.json", "r") as file:
                 self.audit_logs = json.load(file)
+
+            for log in self.audit_logs:
+                if not log.get("description"):
+                    extra = (
+                        log.get("invoice_id")
+                        or log.get("invoice_code")
+                        or log.get("project_id", "")
+                    )
+                    action = log.get("action", "UNKNOWN")
+                    log["description"] = action + (f" ({extra})" if extra else "")
+
+                if not log.get("timestamp"):
+                    log["timestamp"] = "Unknown time"
+
+            try:
+                with open("data/settings.json", "r") as file:
+                    settings = json.load(file)
+
+                rate = float(settings.get("commission_rate", 0.10))
+                self.commission_calculator.update_rate(rate)
+            except (FileNotFoundError, TypeError, ValueError, json.JSONDecodeError):
+                pass
+
+            for invoice in self.invoices:
+                paid = round(invoice.amount_paid(self.payments), 2)
+                if paid <= 0:
+                    invoice.status = "Unpaid"
+                elif paid < invoice.amount:
+                    invoice.status = "Partially Paid"
+                else:
+                    invoice.status = "Paid"
+
+            for user in self.users:
+                if user.role in ("Client", "Freelancer"):
+                    user.project_ids = []
+
+            for project in self.projects:
+                client = self.find_user(project.client_id)
+                if client is not None and client.role == "Client":
+                    if project.project_id not in client.project_ids:
+                        client.project_ids.append(project.project_id)
+
+                if project.freelancer_id:
+                    freelancer = self.find_user(project.freelancer_id)
+                    if freelancer is not None and freelancer.role == "Freelancer":
+                        if project.project_id not in freelancer.project_ids:
+                            freelancer.project_ids.append(project.project_id)
+
+            for user in self.users:
+                if user.role == "Freelancer":
+                    user.earnings = self.calculate_freelancer_earnings(user.user_id)
 
             print("Data loaded successfully.")
 
@@ -513,33 +1178,28 @@ class Authentication:
 
     def register(self):
 
-        print("\n" + "-" * 50)
-        print("                 REGISTER")
-        print("-" * 50)
-        print("(Type cancel at any time to cancel the operation)")
-        print("-" * 50)
-
-        # ACCOUNT TYPE
         while True:
+            print_screen("REGISTER")
+            print("[1] Client")
+            print("[2] Freelancer")
+            print("[0] Back")
+            print("-" * 50)
 
-            account_type = input(
-                "\n[1] Client\n" "[2] Freelancer\n" "Choose account type: "
-            ).strip()
+            account_type = input("\nEnter your choice (0-2): ").strip()
 
-            if is_cancel(account_type):
-                print("\nRegistration cancelled.")
+            if is_cancel(account_type) or account_type == "0":
+                return_to("Main Menu")
                 return None
 
-            elif account_type == "1":
+            if account_type == "1":
                 account_type = "Client"
                 break
 
-            elif account_type == "2":
+            if account_type == "2":
                 account_type = "Freelancer"
                 break
 
-            else:
-                print("\n[ERROR] Please choose 1 or 2.\n")
+            print("[ERROR] Please choose 1 or 2.")
 
         # USER ID
         while True:
@@ -547,19 +1207,19 @@ class Authentication:
             user_id = input("Enter your User ID: ").strip().upper()
 
             if is_cancel(user_id):
-                print("\nRegistration cancelled.")
+                return_to("Main Menu")
                 return None
 
             try:
                 validate_user_id(user_id, expected_role=account_type, allow_admin=False)
 
                 if self.manager.find_user(user_id) is not None:
-                    print("\n[ERROR] This User ID is already registered.\n")
+                    print("[ERROR] This User ID is already registered.")
                 else:
                     break
 
             except ValueError as e:
-                print(f"\n[ERROR] {e}\n")
+                print(f"[ERROR] {e}")
 
         # NAME
         while True:
@@ -567,7 +1227,7 @@ class Authentication:
             name_input = input("Enter your name: ").strip()
 
             if is_cancel(name_input):
-                print("\nRegistration cancelled.")
+                return_to("Main Menu")
                 return None
 
             try:
@@ -575,7 +1235,7 @@ class Authentication:
                 break
 
             except ValueError as e:
-                print(f"\n[ERROR] {e}\n")
+                print(f"[ERROR] {e}")
 
         # AGE
         while True:
@@ -583,7 +1243,7 @@ class Authentication:
             age_input = input("Enter your age: ").strip()
 
             if is_cancel(age_input):
-                print("\nRegistration cancelled.")
+                return_to("Main Menu")
                 return None
 
             try:
@@ -591,7 +1251,7 @@ class Authentication:
                 break
 
             except ValueError as e:
-                print(f"\n[ERROR] {e}\n")
+                print(f"[ERROR] {e}")
 
         # GENDER
         while True:
@@ -599,7 +1259,7 @@ class Authentication:
             gender_input = input("Enter your gender (Male/Female): ").strip()
 
             if is_cancel(gender_input):
-                print("\nRegistration cancelled.")
+                return_to("Main Menu")
                 return None
 
             try:
@@ -607,7 +1267,7 @@ class Authentication:
                 break
 
             except ValueError as e:
-                print(f"\n[ERROR] {e}\n")
+                print(f"[ERROR] {e}")
 
         # CITY
         while True:
@@ -615,7 +1275,7 @@ class Authentication:
             city_input = input("Enter your city: ").strip()
 
             if is_cancel(city_input):
-                print("\nRegistration cancelled.")
+                return_to("Main Menu")
                 return None
 
             try:
@@ -623,7 +1283,7 @@ class Authentication:
                 break
 
             except ValueError as e:
-                print(f"\n[ERROR] {e}\n")
+                print(f"[ERROR] {e}")
 
         # EMAIL
         while True:
@@ -631,19 +1291,19 @@ class Authentication:
             email_input = input("Enter your email: ").strip()
 
             if is_cancel(email_input):
-                print("\nRegistration cancelled.")
+                return_to("Main Menu")
                 return None
 
             try:
                 email = validate_email(email_input)
 
                 if self.manager.find_email(email) is not None:
-                    print("\n[ERROR] This email is already registered.\n")
+                    print("[ERROR] This email is already registered.")
                 else:
                     break
 
             except ValueError as e:
-                print(f"\n[ERROR] {e}\n")
+                print(f"[ERROR] {e}")
 
         # PHONE
         while True:
@@ -651,19 +1311,19 @@ class Authentication:
             phone_input = input("Enter your phone number: ").strip()
 
             if is_cancel(phone_input):
-                print("\nRegistration cancelled.")
+                return_to("Main Menu")
                 return None
 
             try:
                 phone = validate_phone(phone_input)
 
                 if self.manager.find_phone(phone) is not None:
-                    print("\n[ERROR] This phone number is already registered.\n")
+                    print("[ERROR] This phone number is already registered.")
                 else:
                     break
 
             except ValueError as e:
-                print(f"\n[ERROR] {e}\n")
+                print(f"[ERROR] {e}")
 
         # PASSWORD
         while True:
@@ -671,7 +1331,7 @@ class Authentication:
             password = input("Enter your password: ").strip()
 
             if is_cancel(password):
-                print("\nRegistration cancelled.")
+                return_to("Main Menu")
                 return None
 
             try:
@@ -679,7 +1339,7 @@ class Authentication:
                 break
 
             except ValueError as e:
-                print(f"\n[ERROR] {e}\n")
+                print(f"[ERROR] {e}")
 
         # CONFIRM PASSWORD
         while True:
@@ -687,11 +1347,11 @@ class Authentication:
             confirm_password = input("Confirm your password: ").strip()
 
             if is_cancel(confirm_password):
-                print("\nRegistration cancelled.")
+                return_to("Main Menu")
                 return None
 
             if confirm_password != password:
-                print("\n[ERROR] Passwords do not match.\n")
+                print("[ERROR] Passwords do not match.")
             else:
                 break
 
@@ -703,7 +1363,7 @@ class Authentication:
                 company_input = input("Enter your company name: ").strip()
 
                 if is_cancel(company_input):
-                    print("\nRegistration cancelled.")
+                    return_to("Main Menu")
                     return None
 
                 try:
@@ -711,7 +1371,7 @@ class Authentication:
                     break
 
                 except ValueError as e:
-                    print(f"\n[ERROR] {e}\n")
+                    print(f"[ERROR] {e}")
 
             user = Client(
                 user_id,
@@ -734,7 +1394,7 @@ class Authentication:
                 skills_input = input("Enter your skills separated by commas: ")
 
                 if is_cancel(skills_input):
-                    print("\nRegistration cancelled.")
+                    return_to("Main Menu")
                     return None
 
                 try:
@@ -742,7 +1402,7 @@ class Authentication:
                     break
 
                 except ValueError as e:
-                    print(f"\n[ERROR] {e}\n")
+                    print(f"[ERROR] {e}")
 
             # HOURLY RATE
             while True:
@@ -750,7 +1410,7 @@ class Authentication:
                 hourly_rate_input = input("Enter your hourly rate: ")
 
                 if is_cancel(hourly_rate_input):
-                    print("\nRegistration cancelled.")
+                    return_to("Main Menu")
                     return None
 
                 try:
@@ -758,7 +1418,7 @@ class Authentication:
                     break
 
                 except ValueError as e:
-                    print(f"\n[ERROR] {e}\n")
+                    print(f"[ERROR] {e}")
 
             user = Freelancer(
                 user_id,
@@ -782,11 +1442,10 @@ class Authentication:
         # SAVE DATA
         self.manager.save_data()
 
-        print("\n" + "=" * 45)
-        print("       REGISTRATION SUCCESSFUL")
-        print("=" * 45)
-        print("Account Type:", user.role)
-        print("Welcome,", user.name)
+        print_menu("REGISTRATION SUCCESSFUL")
+        print(f"    Account Type: {user.role}")
+        print(f"    Welcome: {user.name}")
+        print("=" * 50)
 
         self.current_user = user
         return user
@@ -795,11 +1454,7 @@ class Authentication:
 
         max_attempts = 3
 
-        print("\n" + "-" * 50)
-        print("                   LOGIN")
-        print("-" * 50)
-        print("(Type cancel at any time to cancel the operation)")
-        print("-" * 50)
+        print_screen("LOGIN")
         attempt = 1
 
         while attempt <= max_attempts:
@@ -812,7 +1467,7 @@ class Authentication:
                 user_id = input("Enter your User ID: ").strip().upper()
 
                 if is_cancel(user_id):
-                    print("\nLogin cancelled.")
+                    return_to("Main Menu")
                     return None
 
                 try:
@@ -829,7 +1484,7 @@ class Authentication:
                 password = input("Enter your password: ").strip()
 
                 if is_cancel(password):
-                    print("\nLogin cancelled.")
+                    return_to("Main Menu")
                     return None
 
                 if password == "":
@@ -864,14 +1519,13 @@ class Authentication:
             )
             self.manager.save_data(msg=False)
 
-            print("\n" + "=" * 45)
-            print(f"     Welcome back, {found_user.name}!")
-            print("=" * 45 + "\n")
+            print_menu(f"Welcome back, {found_user.name}!")
 
             return found_user
 
-        print("\nLOGIN FAILED")
-        print("Maximum attempts reached.")
+        print_screen("LOGIN FAILED", hint=None)
+        print("    Maximum attempts reached.")
+        print("-" * 50)
 
         return None
 
