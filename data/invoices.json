@@ -1,1 +1,13 @@
-[]
+[
+    {
+        "invoice_code": "INV-2026-0001",
+        "project_id": "P001",
+        "client_id": "C001",
+        "freelancer_id": "F001",
+        "amount": 5000,
+        "commission": 500.0,
+        "net_amount": 4500.0,
+        "due_date": "2026-12-31",
+        "status": "Paid"
+    }
+]
