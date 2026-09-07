@@ -1,1 +1,13 @@
-[]
+[
+    {
+        "project_id": "P001",
+        "title": "\u0645\u0648\u0642\u0639",
+        "description": "\u0648\u0635\u0641",
+        "client_id": "C001",
+        "freelancer_id": "F001",
+        "budget": 5000,
+        "deadline": "2026-12-31",
+        "status": "Pending",
+        "milestones": []
+    }
+]
