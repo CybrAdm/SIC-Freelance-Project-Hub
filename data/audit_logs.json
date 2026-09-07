@@ -1,1 +1,12 @@
-[]
+[
+    {
+        "user_id": "F001",
+        "action": "GENERATE_INVOICE",
+        "description": "Invoice INV-2026-0001 created."
+    },
+    {
+        "user_id": "C001",
+        "action": "RECORD_PAYMENT",
+        "description": "Payment PMT-0001 for INV-2026-0001."
+    }
+]
