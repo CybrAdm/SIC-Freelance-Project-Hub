@@ -960,4 +960,115 @@ class Payment:
         }
 
 
+
+def finance_menu(manager):
+
+    while True:
+
+        print("\n----- Finance Menu (Invoices / Payments / Reports) -----")
+        print("1. Generate Invoice")
+        print("2. View Invoice")
+        print("3. Update Invoice")
+        print("4. Check Invoice Status")
+        print("5. Record Payment")
+        print("6. View Payment")
+        print("7. Payment History")
+        print("8. Payment Status")
+        print("9. Update Commission Rate")
+        print("10. Payment Report")
+        print("11. Freelancer Earnings Report")
+        print("12. Project Report")
+        print("13. Dashboard")
+        print("0. Back / Quit")
+
+        choice = input("Choose an option: ").strip()
+
+        try:
+
+            if choice == "1":
+                project_id = input("Project ID: ").strip()
+                due_date = input("Due date (YYYY-MM-DD): ").strip()
+                invoice = manager.generate_invoice(project_id, due_date)
+                print(f"Invoice created: {invoice.invoice_code} | Net amount: {invoice.net_amount}")
+
+            elif choice == "2":
+                code = input("Invoice code: ").strip()
+                invoice = manager.view_invoice(code)
+                print(invoice.to_dict())
+
+            elif choice == "3":
+                code = input("Invoice code: ").strip()
+                new_amount = input("New amount (blank to skip): ").strip()
+                new_due_date = input("New due date (blank to skip): ").strip()
+                invoice = manager.update_invoice(
+                    code,
+                    amount=float(new_amount) if new_amount else None,
+                    due_date=new_due_date if new_due_date else None,
+                )
+                print(f"Invoice updated: {invoice.to_dict()}")
+
+            elif choice == "4":
+                code = input("Invoice code: ").strip()
+                print(f"Status: {manager.get_invoice_status(code)}")
+
+            elif choice == "5":
+                code = input("Invoice code: ").strip()
+                amount = input("Payment amount: ").strip()
+                method = input("Payment method: ").strip()
+                payment = manager.record_payment(code, amount, method)
+                print(f"Payment recorded: {payment.payment_id}")
+
+            elif choice == "6":
+                payment_id = input("Payment ID: ").strip()
+                print(manager.view_payment(payment_id).to_dict())
+
+            elif choice == "7":
+                code = input("Filter by invoice code (blank for all): ").strip()
+                history = manager.get_payment_history(invoice_code=code if code else None)
+                for payment in history:
+                    print(payment.to_dict())
+
+            elif choice == "8":
+                payment_id = input("Payment ID: ").strip()
+                print(f"Status: {manager.get_payment_status(payment_id)}")
+
+            elif choice == "9":
+                new_rate = float(input("New commission rate (0-1): ").strip())
+                manager.update_commission_rate(new_rate)
+                print(f"Commission rate updated to {manager.get_commission_rate()}")
+
+            elif choice == "10":
+                print(manager.payment_report())
+
+            elif choice == "11":
+                for row in manager.freelancer_earnings_report():
+                    print(row)
+
+            elif choice == "12":
+                print(manager.project_report())
+
+            elif choice == "13":
+                print(manager.dashboard_report())
+
+            elif choice == "0":
+                break
+
+            else:
+                print("Invalid choice, please try again.")
+
+        except (
+            InvalidInvoiceCodeError,
+            InvoiceNotFoundError,
+            ProjectNotReadyForInvoiceError,
+            InvalidPaymentAmountError,
+            PaymentExceedsBalanceError,
+            PaymentNotFoundError,
+            ValueError,
+        ) as error:
+            print(f"Error: {error}")
+
+
 manager = FreelanceManager()
+
+if __name__ == "__main__":
+    finance_menu(manager)
