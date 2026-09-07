@@ -1,1 +1,28 @@
-[]
+[
+    {
+        "user_id": "C001",
+        "name": "Ahmed",
+        "email": "ahmed@test.com",
+        "phone": "0100",
+        "password": "pass",
+        "role": "Client",
+        "active": true,
+        "company_name": "MyCompany",
+        "project_ids": []
+    },
+    {
+        "user_id": "F001",
+        "name": "Omar",
+        "email": "omar@test.com",
+        "phone": "0101",
+        "password": "pass",
+        "role": "Freelancer",
+        "active": true,
+        "skills": [
+            "Python"
+        ],
+        "hourly_rate": 50,
+        "project_ids": [],
+        "earnings": 4500.0
+    }
+]
