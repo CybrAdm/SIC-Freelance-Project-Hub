@@ -13,8 +13,8 @@ class MissingFreelancerError(Exception):
 class ProjectIterator:
     # Iterates over a list of projects sequentially.
     def __init__(self, projects):
-        self._projects = projects
-        self._index = 0
+        self._projects= projects
+        self._index= 0
 
     def __iter__(self):
         return self
@@ -26,10 +26,7 @@ class ProjectIterator:
             return proj
         raise StopIteration
 
-
-# 3. Project Health and Status
 def get_project_health(project):
-    # Computes project health: ON TRACK, AT RISK, LATE, or COMPLETED.
     if project.status == "Completed":
         return "COMPLETED"
 
@@ -51,39 +48,45 @@ def get_project_health(project):
 def create_project(client_id):
     print("\n--- Create New Project ---")
     while True:
-        project_id = input("Enter Project ID (e.g., P001): ").strip()
+        project_id = input("Please enter the ID of your new project: ").strip()
         if not project_id:
-            print("Project ID cannot be empty.")
+            print("The project ID can't be empty.")
             continue
+
         if manager.find_project(project_id):
-            print("Error: Project ID already exists. Try another.")
+            print("Error found: the project ID already exists. Please try another ID.")
         else:
             break
 
-    title = input("Enter Project Title: ").strip()
-    description = input("Enter Project Description: ").strip()
+    title = input("Please enter the title of your new project: ").strip()
+    if not title:
+        title = "Untitled Project"
+
+    description = input("please enter the description of your new project: ").strip()
 
     while True:
         try:
-            budget = float(input("Enter Budget ($): "))
+            budget_input = input("Enter the budget: ").strip()
+            budget = float(budget_input)
             if budget > 0:
                 break
-            print("Budget must be a positive number.")
+            else:
+                print("The budget must be a positive number.")
         except ValueError:
-            print("Invalid input. Please enter a valid number.")
+            print("Wrong input. Please enter a valid number.")
 
     while True:
-        deadline = input("Enter Deadline (YYYY-MM-DD): ").strip()
+        deadline = input("Enter the deadline exactly in this format YYYY-MM-DD pleasee: ").strip()
         if re.match(r"^\d{4}-\d{2}-\d{2}$", deadline):
             try:
                 datetime.strptime(deadline, "%Y-%m-%d")
                 break
             except ValueError:
-                print("Invalid calendar date. Try again.")
+                print("The calendar date you entered is wrong. Please try again.")
         else:
-            print("Invalid format. Must be YYYY-MM-DD.")
+            print("The format of the date you entered is wrong. Please make sure it's YYYY-MM-DD or else it'll crash.")
 
-    priority = input("Enter Priority (Low/Medium/High): ").strip().capitalize()
+    priority = input("Enter the priority level of the project [Low | Medium | High] or just press enter for medium: ").strip().capitalize()
     if priority not in ["Low", "Medium", "High"]:
         priority = "Medium"
 
@@ -101,7 +104,7 @@ def create_project(client_id):
 
     manager.add_project(new_project)
     manager.save_data()
-    print(f"Project '{title}' (ID: {project_id}) created successfully.")
+    print(f"Project '{title}' (ID: {project_id}) created succesfully.")
     return new_project
 
 
@@ -113,8 +116,11 @@ def view_project():
         return
 
     health = get_project_health(project)
-    freelancer_info = project.freelancer_id if project.freelancer_id else "Unassigned"
-    priority = getattr(project, "priority", "Medium")
+    if project.freelancer_id:
+        freelancer_info = project.freelancer_id
+    else:
+        freelancer_info = "Unassigned"
+    priority = project.priority
 
     print(f"\n--- Project Details: {project.title} ---")
     print(f"Project ID: {project.project_id}")
@@ -128,9 +134,13 @@ def view_project():
     print(f"Health: {health}")
 
 
-def view_all_projects(client_id=None):  # We added this default parameter to filter by client if provided, or show all projects by default.
-    print("\n--- Projects ---")
-    projects = [p for p in manager.projects if p.client_id == client_id] if client_id else manager.projects
+def view_all_projects(client_id):
+    print("\n--- My Projects ---")
+    projects = []
+    for p in manager.projects:
+        if p.client_id == client_id:
+            projects.append(p)
+
     if not projects:
         print("No projects found.")
         return
@@ -138,13 +148,16 @@ def view_all_projects(client_id=None):  # We added this default parameter to fil
     # Using custom ProjectIterator
     iterator = ProjectIterator(projects)
     for p in iterator:
-        freelancer_info = p.freelancer_id if p.freelancer_id else "Unassigned"
+        if p.freelancer_id:
+            freelancer_info = p.freelancer_id
+        else:
+            freelancer_info = "Unassigned"
         health = get_project_health(p)
-        priority = getattr(p, "priority", "Medium")
+        priority = p.priority
         print(f"ID: {p.project_id} | Title: {p.title} | Status: {p.status} | Priority: {priority} | Health: {health} | Budget: ${p.budget} | Freelancer: {freelancer_info}")
 
 
-def update_project(client_id=None):  # We added this default parameter to check project ownership if client_id is provided.
+def update_project(client_id):
     print("\n--- Update Project ---")
     project_id = input("Enter Project ID to update: ").strip()
     project = manager.find_project(project_id)
@@ -152,7 +165,7 @@ def update_project(client_id=None):  # We added this default parameter to check 
         print("Error: Project not found.")
         return
 
-    if client_id and project.client_id != client_id:
+    if project.client_id != client_id:
         print("Unauthorized: You do not own this project.")
         return
 
@@ -171,30 +184,41 @@ def update_project(client_id=None):  # We added this default parameter to check 
             b_val = float(new_budget)
             if b_val > 0:
                 project.budget = b_val
+            else:
+                print("Budget must be positive. Kept previous value.")
         except ValueError:
             print("Invalid budget. Kept previous value.")
 
     new_deadline = input(f"New Deadline (YYYY-MM-DD) [{project.deadline}]: ").strip()
-    if new_deadline and re.match(r"^\d{4}-\d{2}-\d{2}$", new_deadline):
-        try:
-            datetime.strptime(new_deadline, "%Y-%m-%d")
-            project.deadline = new_deadline
-        except ValueError:
-            print("Invalid date. Kept previous deadline.")
+    if new_deadline:
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", new_deadline):
+            try:
+                datetime.strptime(new_deadline, "%Y-%m-%d")
+                project.deadline = new_deadline
+            except ValueError:
+                print("Invalid date. Kept previous deadline.")
+        else:
+            print("Invalid date format. Kept previous deadline.")
 
     new_status = input(f"New Status (Pending/In Progress/Completed) [{project.status}]: ").strip()
-    if new_status in ["Pending", "In Progress", "Completed"]:
-        project.status = new_status
+    if new_status:
+        if new_status in ["Pending", "In Progress", "Completed"]:
+            project.status = new_status
+        else:
+            print("Invalid status option. Kept previous status.")
 
     new_priority = input("New Priority (Low/Medium/High): ").strip().capitalize()
-    if new_priority in ["Low", "Medium", "High"]:
-        project.priority = new_priority
+    if new_priority:
+        if new_priority in ["Low", "Medium", "High"]:
+            project.priority = new_priority
+        else:
+            print("Invalid priority option. Kept previous priority.")
 
     manager.save_data()
     print("Project updated successfully.")
 
 
-def delete_project(client_id=None):  # We added this default parameter to check project ownership if client_id is provided.
+def delete_project(client_id):
     print("\n--- Delete Project ---")
     project_id = input("Enter Project ID to delete: ").strip()
     project = manager.find_project(project_id)
@@ -202,7 +226,7 @@ def delete_project(client_id=None):  # We added this default parameter to check 
         print("Error: Project not found.")
         return
 
-    if client_id and project.client_id != client_id:
+    if project.client_id != client_id:
         print("Unauthorized: You do not own this project.")
         return
 
@@ -211,7 +235,7 @@ def delete_project(client_id=None):  # We added this default parameter to check 
         manager.projects = [p for p in manager.projects if p.project_id != project_id]
         manager.milestones = [m for m in manager.milestones if m.project_id != project_id]
         manager.save_data()
-        print(f"Project '{project_id}' deleted successfully.")
+        print(f"Project '{project_id}' deleted succesfully.")
     else:
         print("Deletion cancelled.")
 
@@ -229,17 +253,19 @@ def assign_freelancer():
 
     try:
         freelancer = manager.find_user(freelancer_id)
-        if not freelancer or getattr(freelancer, "role", None) != "Freelancer":
+        if not freelancer:
             raise MissingFreelancerError(f"Freelancer with ID '{freelancer_id}' does not exist.")
+        elif freelancer.role != "Freelancer":
+            raise MissingFreelancerError(f"User with ID '{freelancer_id}' is not a Freelancer.")
 
         project.freelancer_id = freelancer_id
         project.status = "In Progress"
 
-        if hasattr(freelancer, "project_ids") and project_id not in freelancer.project_ids:
+        if project_id not in freelancer.project_ids:
             freelancer.project_ids.append(project_id)
 
         manager.save_data()
-        print(f"Success: Freelancer '{freelancer.name}' assigned to Project '{project.title}'.")
+        print(f"Success: Freelancer '{freelancer.name}' assigned to Project '{project.title}' succesfully.")
 
     except MissingFreelancerError as e:
         print(f"Assignment Failed: {e}")
@@ -290,7 +316,7 @@ def add_milestone():
     manager.add_milestone(new_milestone)
     manager.sync_project_milestones(project_id)
     manager.save_data()
-    print(f"Milestone '{title}' (ID: {ms_id}) added successfully.")
+    print(f"Milestone '{title}' (ID: {ms_id}) added succesfully.")
 
 
 def view_milestones():
@@ -343,7 +369,7 @@ def view_milestone_history():
 
     print(f"\n--- Milestone History: {milestone.title} ({milestone.milestone_id}) ---")
     print(f"Current Status: {milestone.status}")
-    history = getattr(milestone, "history", [])
+    history = milestone.history
     if not history:
         print("No status change history recorded yet.")
     else:
@@ -352,29 +378,11 @@ def view_milestone_history():
 
 
 # 7. filter()
-def get_active_projects(client_id=None):  # We added this default parameter to filter by client if provided, or get all active projects.
-    # We use filter() to retrieve only In Progress projects.
-    if client_id:
-        projects = []
-        for p in manager.projects:
-            if p.client_id == client_id:
-                projects.append(p)
-    else:
-        projects = manager.projects
-
-    return list(filter(lambda p: p.status == "In Progress", projects))
+def get_active_projects():
+    return list(filter(lambda p: p.status == "In Progress", manager.projects))
 
 
-def get_late_projects(client_id=None):  # We added this default parameter to filter by client if provided, or check all projects.
-    # We use filter() to retrieve incomplete projects that passed deadline.
-    if client_id:
-        projects = []
-        for p in manager.projects:
-            if p.client_id == client_id:
-                projects.append(p)
-    else:
-        projects = manager.projects
-
+def get_late_projects():
     now = datetime.now()
 
     def is_late(p):
@@ -389,35 +397,20 @@ def get_late_projects(client_id=None):  # We added this default parameter to fil
         except ValueError:
             return False
 
-    return list(filter(is_late, projects))
+    return list(filter(is_late, manager.projects))
 
 
 # 8. Lambda Sorting
-def sort_projects_by_deadline(projects=None):  # We added this default parameter to sort a custom project list or default to all projects.
-    # We use lambda to sort projects by deadline.
-    if projects is not None:
-        proj_list = projects
-    else:
-        proj_list = manager.projects
-    return sorted(proj_list, key=lambda p: p.deadline)
+def sort_projects_by_deadline():
+    return sorted(manager.projects, key=lambda p: p.deadline)
 
 
-def sort_projects_by_budget(projects=None, descending=True):  # We added these default parameters to allow a custom list and control sort order (highest budget first by default).
-    # We use lambda to sort projects by budget.
-    if projects is not None:
-        proj_list = projects
-    else:
-        proj_list = manager.projects
-    return sorted(proj_list, key=lambda p: float(p.budget), reverse=descending)
+def sort_projects_by_budget():
+    return sorted(manager.projects, key=lambda p: float(p.budget), reverse=True)
 
 
-def sort_projects_by_priority(projects=None):  # We added this default parameter to sort a custom list or default to all projects.
-    # We use lambda to sort projects by priority (High > Medium > Low).
-    if projects is not None:
-        proj_list = projects
-    else:
-        proj_list = manager.projects
+def sort_projects_by_priority():
     priority_order = {"High": 1, "Medium": 2, "Low": 3}
-    
-    #getattr is used to get the priority of the project, if it doesn't exist, it will return Medium as the default priority.
-    return sorted(proj_list, key=lambda p: priority_order.get(getattr(p, "priority", "Medium"), 4)) 
+    return sorted(manager.projects, key=lambda p: priority_order.get(p.priority, 4))
+
+from admin_project_service import admin_project_management_menu, admin_milestone_management_menu

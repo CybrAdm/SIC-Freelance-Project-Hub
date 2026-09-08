@@ -256,6 +256,7 @@ class FreelanceManager:
                     project_data["budget"],
                     project_data["deadline"],
                     project_data["status"],
+                    project_data.get("priority", "Medium"),
                 )
 
                 project.milestones = project_data.get("milestones", [])
@@ -350,6 +351,7 @@ class User:
         self.password = password
         self.role = role
         self.active = True
+        self.project_ids = []
 
     def profile_summary(self):
 
@@ -467,6 +469,7 @@ class Project:
         budget,
         deadline,
         status="Pending",
+        priority="Medium",
     ):
         self.project_id = project_id
         self.title = title
@@ -476,6 +479,7 @@ class Project:
         self.budget = budget
         self.deadline = deadline
         self.status = status
+        self.priority = priority
         self.milestones = []
 
     def to_dict(self):
@@ -489,6 +493,7 @@ class Project:
             "budget": self.budget,
             "deadline": self.deadline,
             "status": self.status,
+            "priority": self.priority,
             "milestones": self.milestones,
         }
 
