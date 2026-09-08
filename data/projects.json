@@ -1,1 +1,127 @@
-[]
+[
+    {
+        "project_id": "P001",
+        "title": "E-commerce Website Redesign",
+        "description": "Redesign the storefront UI and checkout flow.",
+        "client_id": "C101",
+        "freelancer_id": "",
+        "budget": 6000,
+        "deadline": "2026-12-15",
+        "required_skills": [
+            "React",
+            "Node.js"
+        ],
+        "status": "Open",
+        "priority": "High",
+        "health": "On Track",
+        "milestones": []
+    },
+    {
+        "project_id": "P002",
+        "title": "Inventory API Backend",
+        "description": "Build a REST API to manage warehouse inventory.",
+        "client_id": "C101",
+        "freelancer_id": "F101",
+        "budget": 9000,
+        "deadline": "2026-09-09",
+        "required_skills": [
+            "Python",
+            "SQL"
+        ],
+        "status": "In Progress",
+        "priority": "Medium",
+        "health": "At Risk",
+        "milestones": [
+            "M001",
+            "M002",
+            "M003"
+        ]
+    },
+    {
+        "project_id": "P003",
+        "title": "Company Landing Page",
+        "description": "One-page marketing site with a contact form.",
+        "client_id": "C102",
+        "freelancer_id": "F102",
+        "budget": 3500,
+        "deadline": "2026-08-25",
+        "required_skills": [
+            "React"
+        ],
+        "status": "In Progress",
+        "priority": "Low",
+        "health": "Late",
+        "milestones": [
+            "M004",
+            "M005"
+        ]
+    },
+    {
+        "project_id": "P004",
+        "title": "Mobile App Prototype",
+        "description": "Clickable prototype for an internal mobile app.",
+        "client_id": "C101",
+        "freelancer_id": "F101",
+        "budget": 4000,
+        "deadline": "2026-07-01",
+        "required_skills": [],
+        "status": "Completed",
+        "priority": "Medium",
+        "health": "Completed",
+        "milestones": [
+            "M006"
+        ]
+    },
+    {
+        "project_id": "P005",
+        "title": "Data Migration Script",
+        "description": "Migrate legacy customer records to the new schema.",
+        "client_id": "C102",
+        "freelancer_id": "F101",
+        "budget": 2000,
+        "deadline": "2026-11-01",
+        "required_skills": [
+            "Python"
+        ],
+        "status": "Pending",
+        "priority": "High",
+        "health": "On Track",
+        "milestones": [
+            "M007"
+        ]
+    },
+    {
+        "project_id": "P006",
+        "title": "Internal Dashboard",
+        "description": "Analytics dashboard for the operations team.",
+        "client_id": "C101",
+        "freelancer_id": "F101",
+        "budget": 3000,
+        "deadline": "2026-10-05",
+        "required_skills": [
+            "Python"
+        ],
+        "status": "Pending",
+        "priority": "Medium",
+        "health": "On Track",
+        "milestones": [
+            "M008"
+        ]
+    },
+    {
+        "project_id": "P007",
+        "title": "Legacy System Audit",
+        "description": "Review an old Java system before a rewrite decision.",
+        "client_id": "C102",
+        "freelancer_id": "",
+        "budget": 1500,
+        "deadline": "2026-12-20",
+        "required_skills": [
+            "Java"
+        ],
+        "status": "Open",
+        "priority": "Low",
+        "health": "On Track",
+        "milestones": []
+    }
+]

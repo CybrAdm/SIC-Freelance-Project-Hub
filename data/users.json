@@ -1,1 +1,98 @@
-[]
+[
+    {
+        "user_id": "A001",
+        "name": "Dina Nabil",
+        "email": "dina.nabil@sichub.com",
+        "phone": "01025016457",
+        "age": 20,
+        "gender": "Female",
+        "city": "Cairo",
+        "password": "Dina1234",
+        "role": "Admin",
+        "active": true
+    },
+    {
+        "user_id": "C101",
+        "name": "Adam Ahmed Abdelbaset",
+        "email": "adam.ahmed@sichub.com",
+        "phone": "01116622100",
+        "age": 20,
+        "gender": "Male",
+        "city": "Cairo",
+        "password": "Adam1234",
+        "role": "Client",
+        "active": true,
+        "company_name": "Abdelbaset Trading",
+        "project_ids": [
+            "P001",
+            "P002",
+            "P004",
+            "P006"
+        ]
+    },
+    {
+        "user_id": "C102",
+        "name": "Omar Mohammed Sultan",
+        "email": "omar.sultan@sichub.com",
+        "phone": "01508303973",
+        "password": "Omar1234",
+        "age": 20,
+        "gender": "Male",
+        "city": "Alexandria",
+        "role": "Client",
+        "active": true,
+        "company_name": "Raafat Media",
+        "project_ids": [
+            "P003",
+            "P005",
+            "P007"
+        ]
+    },
+    {
+        "user_id": "F101",
+        "name": "Mohammed Raafat",
+        "email": "mohammed.raafat@sichub.com",
+        "phone": "01012345678",
+        "password": "Raafat123",
+        "role": "Freelancer",
+        "active": true,
+        "age": 20,
+        "gender": "Male",
+        "city": "Giza",
+        "skills": [
+            "Python",
+            "Django",
+            "SQL"
+        ],
+        "hourly_rate": 15.0,
+        "project_ids": [
+            "P002",
+            "P004",
+            "P005",
+            "P006"
+        ],
+        "earnings": 3600
+    },
+    {
+        "user_id": "F102",
+        "name": "Ahmed Tarek",
+        "email": "ahmed.tarek@sichub.com",
+        "phone": "01061133975",
+        "password": "Tarek1234",
+        "role": "Freelancer",
+        "active": true,
+        "age": 20,
+        "gender": "Male",
+        "city": "Cairo",
+        "skills": [
+            "React",
+            "Node.js",
+            "UI/UX"
+        ],
+        "hourly_rate": 12.5,
+        "project_ids": [
+            "P003"
+        ],
+        "earnings": 0
+    }
+]
