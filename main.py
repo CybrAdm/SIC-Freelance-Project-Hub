@@ -62,6 +62,13 @@ class FreelanceManager:
 
         self.audit_logs.append(log)
 
+    def remove_user(self, user_id):
+        user_to_remove = self.find_user(user_id)
+        if user_to_remove:
+            self.users.remove(user_to_remove)
+            return True
+        return False
+
     # GETTERS
     def find_user(self, user_id):
 
@@ -600,3 +607,4 @@ class Payment:
 
 
 manager = FreelanceManager()
+
