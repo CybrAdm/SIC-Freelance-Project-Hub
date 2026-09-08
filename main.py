@@ -1,5 +1,5 @@
 from manager import Manager, Authentication
-from menus import landing_page
+from menus.menus import landing_page
 
 
 def main():

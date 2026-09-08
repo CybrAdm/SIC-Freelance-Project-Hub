@@ -1,10 +1,26 @@
 [
     {
         "payment_id": "PAY001",
-        "invoice_id": "I002",
-        "client_id": "C002",
-        "amount": 1500.0,
+        "invoice_code": "I001",
+        "client_id": "C101",
+        "amount": 4000,
+        "payment_method": "Bank Transfer",
+        "status": "Completed"
+    },
+    {
+        "payment_id": "PAY002",
+        "invoice_code": "I002",
+        "client_id": "C101",
+        "amount": 3000,
         "payment_method": "Credit Card",
         "status": "Completed"
+    },
+    {
+        "payment_id": "PAY003",
+        "invoice_code": "I002",
+        "client_id": "C101",
+        "amount": 500,
+        "payment_method": "Credit Card",
+        "status": "Failed"
     }
 ]

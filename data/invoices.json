@@ -1,24 +1,35 @@
 [
     {
-        "invoice_id": "I001",
-        "project_id": "P001",
-        "client_id": "C001",
-        "freelancer_id": "F001",
-        "amount": 1000.0,
-        "commission": 100.0,
-        "net_amount": 900.0,
-        "due_date": "2026-09-25",
-        "status": "Pending"
+        "invoice_code": "I001",
+        "project_id": "P004",
+        "client_id": "C101",
+        "freelancer_id": "F101",
+        "amount": 4000,
+        "commission": 400,
+        "net_amount": 3600,
+        "due_date": "2026-07-15",
+        "status": "Paid"
     },
     {
-        "invoice_id": "I002",
+        "invoice_code": "I002",
+        "project_id": "P002",
+        "client_id": "C101",
+        "freelancer_id": "F101",
+        "amount": 9000,
+        "commission": 900,
+        "net_amount": 8100,
+        "due_date": "2026-09-20",
+        "status": "Partially Paid"
+    },
+    {
+        "invoice_code": "I003",
         "project_id": "P003",
-        "client_id": "C002",
-        "freelancer_id": "F002",
-        "amount": 1500.0,
-        "commission": 150.0,
-        "net_amount": 1350.0,
-        "due_date": "2026-08-30",
-        "status": "Paid"
+        "client_id": "C102",
+        "freelancer_id": "F102",
+        "amount": 3500,
+        "commission": 350,
+        "net_amount": 3150,
+        "due_date": "2026-09-01",
+        "status": "Unpaid"
     }
 ]

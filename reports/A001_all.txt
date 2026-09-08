@@ -1,0 +1,36 @@
+{
+    "Payment Report": {
+        "total_payments": 3,
+        "paid": 2,
+        "pending": 0,
+        "failed": 1,
+        "total_amount": 7500
+    },
+    "Freelancer Earnings Report": [
+        {
+            "freelancer": "Omar Mohammed Sultan",
+            "completed_projects": 1,
+            "total_earnings": 3600
+        },
+        {
+            "freelancer": "Ahmed Tarek",
+            "completed_projects": 0,
+            "total_earnings": 0
+        }
+    ],
+    "Project Report": {
+        "active_projects": 4,
+        "late_projects": 1,
+        "completed_projects": 1
+    },
+    "Dashboard": {
+        "total_clients": 2,
+        "total_freelancers": 2,
+        "total_projects": 7,
+        "active_projects": 4,
+        "late_projects": 1,
+        "total_invoices": 3,
+        "total_payments": 3,
+        "total_commission": 1650
+    }
+}

@@ -1,30 +1,254 @@
 [
     {
-        "action": "REGISTER",
-        "user_id": "C001",
+        "user_id": "A001",
+        "action": "USER_REGISTERED",
+        "description": "New user registered.",
+        "timestamp": "2026-06-01 09:00:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "USER_REGISTERED",
+        "description": "New user registered.",
+        "timestamp": "2026-06-02 10:20:00"
+    },
+    {
+        "user_id": "C102",
+        "action": "USER_REGISTERED",
+        "description": "New user registered.",
+        "timestamp": "2026-06-02 10:45:00"
+    },
+    {
+        "user_id": "F101",
+        "action": "USER_REGISTERED",
+        "description": "New user registered.",
+        "timestamp": "2026-06-03 11:00:00"
+    },
+    {
+        "user_id": "F102",
+        "action": "USER_REGISTERED",
+        "description": "New user registered.",
+        "timestamp": "2026-06-03 11:30:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "PROJECT_CREATED",
+        "description": "Client C101 created project P002.",
+        "timestamp": "2026-06-10 08:30:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "FREELANCER_ASSIGNED",
+        "description": "Client C101 assigned F101 to project P002.",
+        "timestamp": "2026-06-10 08:45:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "PROJECT_CREATED",
+        "description": "Client C101 created project P004.",
+        "timestamp": "2026-06-05 09:15:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "FREELANCER_ASSIGNED",
+        "description": "Client C101 assigned F101 to project P004.",
+        "timestamp": "2026-06-05 09:20:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "MILESTONE_ADDED",
+        "description": "Client C101 added milestone M006 to project P004.",
+        "timestamp": "2026-06-05 09:30:00"
+    },
+    {
+        "user_id": "F101",
+        "action": "MILESTONE_UPDATED",
+        "description": "Freelancer F101 updated M006 from Pending to In Progress.",
+        "timestamp": "2026-06-10 09:00:00"
+    },
+    {
+        "user_id": "F101",
+        "action": "MILESTONE_UPDATED",
+        "description": "Freelancer F101 updated M006 from In Progress to Submitted.",
+        "timestamp": "2026-06-20 13:15:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "MILESTONE_APPROVED",
+        "description": "Client C101 approved M006 from Submitted to Approved.",
+        "timestamp": "2026-06-22 10:00:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "GENERATE_INVOICE",
+        "description": "Invoice I001 created for project P004.",
+        "timestamp": "2026-07-01 12:00:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "RECORD_PAYMENT",
+        "description": "Payment PAY001 of 4000 recorded for I001.",
+        "timestamp": "2026-07-05 15:30:00"
+    },
+    {
+        "user_id": "C102",
+        "action": "PROJECT_CREATED",
+        "description": "Client C102 created project P003.",
+        "timestamp": "2026-07-20 09:00:00"
+    },
+    {
+        "user_id": "C102",
+        "action": "FREELANCER_ASSIGNED",
+        "description": "Client C102 assigned F102 to project P003.",
+        "timestamp": "2026-07-20 09:10:00"
+    },
+    {
+        "user_id": "C102",
+        "action": "MILESTONE_ADDED",
+        "description": "Client C102 added milestone M004 to project P003.",
+        "timestamp": "2026-07-21 10:00:00"
+    },
+    {
+        "user_id": "C102",
+        "action": "MILESTONE_ADDED",
+        "description": "Client C102 added milestone M005 to project P003.",
+        "timestamp": "2026-07-21 10:05:00"
+    },
+    {
+        "user_id": "C102",
+        "action": "GENERATE_INVOICE",
+        "description": "Invoice I003 created for project P003.",
+        "timestamp": "2026-08-15 11:00:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "PROJECT_CREATED",
+        "description": "Client C101 created project P006.",
+        "timestamp": "2026-08-20 09:00:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "FREELANCER_ASSIGNED",
+        "description": "Client C101 assigned F101 to project P006.",
+        "timestamp": "2026-08-20 09:10:00"
+    },
+    {
+        "user_id": "C102",
+        "action": "PROJECT_CREATED",
+        "description": "Client C102 created project P005.",
+        "timestamp": "2026-08-22 09:00:00"
+    },
+    {
+        "user_id": "C102",
+        "action": "FREELANCER_ASSIGNED",
+        "description": "Client C102 assigned F101 to project P005.",
+        "timestamp": "2026-08-22 09:10:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "MILESTONE_ADDED",
+        "description": "Client C101 added milestone M001 to project P002.",
+        "timestamp": "2026-08-25 08:00:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "MILESTONE_APPROVED",
+        "description": "Client C101 approved M001 from Submitted to Approved.",
+        "timestamp": "2026-08-30 09:05:00"
+    },
+    {
+        "user_id": "C101",
+        "action": "GENERATE_INVOICE",
+        "description": "Invoice I002 created for project P002.",
         "timestamp": "2026-09-01 10:00:00"
     },
     {
-        "action": "REGISTER",
-        "user_id": "F001",
-        "timestamp": "2026-09-01 10:05:00"
+        "user_id": "C101",
+        "action": "RECORD_PAYMENT",
+        "description": "Payment PAY002 of 3000 recorded for I002.",
+        "timestamp": "2026-09-02 14:00:00"
     },
     {
+        "user_id": "C101",
+        "action": "RECORD_PAYMENT",
+        "description": "Payment PAY003 of 500 recorded for I002.",
+        "timestamp": "2026-09-03 16:45:00"
+    },
+    {
+        "user_id": "C101",
         "action": "PROJECT_CREATED",
-        "user_id": "C001",
-        "project_id": "P001",
-        "timestamp": "2026-09-02 11:00:00"
+        "description": "Client C101 created project P001.",
+        "timestamp": "2026-09-04 09:00:00"
     },
     {
-        "action": "PROJECT_ASSIGNED",
-        "user_id": "F001",
-        "project_id": "P001",
-        "timestamp": "2026-09-02 11:15:00"
+        "user_id": "C102",
+        "action": "PROJECT_CREATED",
+        "description": "Client C102 created project P007.",
+        "timestamp": "2026-09-05 09:00:00"
     },
     {
-        "action": "INVOICE_GENERATED",
-        "user_id": "C001",
-        "invoice_id": "I001",
-        "timestamp": "2026-09-03 12:00:00"
+        "user_id": "A001",
+        "action": "USER_LOGIN",
+        "description": "User logged in successfully.",
+        "timestamp": "2026-09-08 06:04:55"
+    },
+    {
+        "user_id": "A001",
+        "action": "REPORT_EXPORTED",
+        "description": "User A001 exported report to reports\\A001_all.txt.",
+        "timestamp": "2026-09-08 06:05:14"
+    },
+    {
+        "user_id": "A001",
+        "action": "USER_LOGIN",
+        "description": "User logged in successfully.",
+        "timestamp": "2026-09-08 06:38:26"
+    },
+    {
+        "user_id": "A001",
+        "action": "REPORT_EXPORTED",
+        "description": "User A001 exported report to reports\\A001_all.txt.",
+        "timestamp": "2026-09-08 06:38:38"
+    },
+    {
+        "user_id": "A001",
+        "action": "USER_LOGOUT",
+        "description": "User logged out.",
+        "timestamp": "2026-09-08 06:38:54"
+    },
+    {
+        "user_id": "C101",
+        "action": "USER_LOGIN",
+        "description": "User logged in successfully.",
+        "timestamp": "2026-09-08 06:39:29"
+    },
+    {
+        "user_id": "C101",
+        "action": "REPORT_EXPORTED",
+        "description": "User C101 exported report to reports\\C101_all.txt.",
+        "timestamp": "2026-09-08 06:39:33"
+    },
+    {
+        "user_id": "C101",
+        "action": "USER_LOGOUT",
+        "description": "User logged out.",
+        "timestamp": "2026-09-08 06:39:36"
+    },
+    {
+        "user_id": "F101",
+        "action": "USER_LOGIN",
+        "description": "User logged in successfully.",
+        "timestamp": "2026-09-08 06:39:46"
+    },
+    {
+        "user_id": "F101",
+        "action": "REPORT_EXPORTED",
+        "description": "User F101 exported report to reports\\F101_all.txt.",
+        "timestamp": "2026-09-08 06:39:54"
+    },
+    {
+        "user_id": "F101",
+        "action": "USER_LOGOUT",
+        "description": "User logged out.",
+        "timestamp": "2026-09-08 06:39:55"
     }
 ]

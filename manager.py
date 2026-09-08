@@ -39,8 +39,6 @@ from validators import (
     validate_hourly_rate,
 )
 
-from menus import freelancer_matches_project
-
 MAX_ACTIVE_PROJECTS = 3
 
 
@@ -76,6 +74,22 @@ def count_active_projects(freelancer_id, manager):
             count += 1
 
     return count
+
+
+def freelancer_matches_project(freelancer, project):
+    """A freelancer matches a project if the project has no specific
+    skill requirements, or the freelancer has at least one of the
+    required skills (case-insensitive)."""
+
+    if not project.required_skills:
+        return True
+
+    freelancer_skills = {skill.lower() for skill in freelancer.skills}
+
+    return any(
+        required_skill.lower() in freelancer_skills
+        for required_skill in project.required_skills
+    )
 
 
 class Manager:
@@ -223,6 +237,13 @@ class Manager:
                 return user
 
         return None
+
+    def remove_user(self, user_id):
+        user_to_remove = self.find_user(user_id)
+        if user_to_remove:
+            self.users.remove(user_to_remove)
+            return True
+        return False
 
     def _is_admin(self, user_id):
         user = self.find_user(user_id)
@@ -1156,18 +1177,22 @@ class Manager:
                     user.earnings = self.calculate_freelancer_earnings(user.user_id)
 
             print("Data loaded successfully.")
+            return True
 
         except json.JSONDecodeError:
 
             print("\n[ERROR] Invalid JSON data.\n")
+            return False
 
         except FileNotFoundError:
 
             print("\n[ERROR] Data files are not found.\n")
+            return False
 
         except KeyError:
 
             print("\n[ERROR] Data files are missing required fields.\n")
+            return False
 
 
 class Authentication:
